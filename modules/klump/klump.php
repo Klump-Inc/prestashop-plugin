@@ -40,13 +40,20 @@ class Klump extends PaymentModule
 
         $this->confirmUninstall = $this->trans('Are you sure you want to uninstall?', [], 'Modules.Klump.Admin');
 
+        // Is this plugin active
+        $this->active = Configuration::get('DISABLE_KLUMP_OPTION_1');
+
+        // Set basic configuration options
+        $this->config_keys = [
+            'KLUMP_NAME' => 'Klump',
+        ];
+
         if (!Configuration::get('KLUMP_NAME')) {
             $this->warning = $this->trans('No name provided', [], 'Modules.Klump.Admin');
         }
 
         // Set logo
         $this->logo = 'modules/' . $this->name . '/logo.png';
-        var_dump($this->logo);
     }
 
     /**
@@ -83,6 +90,7 @@ class Klump extends PaymentModule
      */
     public function hookPaymentOptions($params)
     {
+        // Check if the module is active and activate Klump BNPL
         if (!$this->active) {
             return [];
         }
@@ -147,6 +155,10 @@ class Klump extends PaymentModule
      */
     private function generateForm()
     {
+        $merchantPublickey = Configuration::get('ENABLE_TEST_MODE_OPTION_1')
+            ? Configuration::get('TEST_PUBLIC_KEY')
+            : Configuration::get('LIVE_PUBLIC_KEY');
+
         $form = '
             <form action="' . $this->context->link->getModuleLink($this->name, 'validation', [], true) . '" method="post">
                 <input type="hidden" name="klump_bnplpayment" value="1"/>
@@ -154,7 +166,7 @@ class Klump extends PaymentModule
             <div id="klump__checkout"></div>
             <script>
                 const payload = {
-                    publicKey: "klp_pk_3f28e5f86dc94db1b29a138e73538a0ff0427a963583440abc55660975714a81",
+                    publicKey: "' . $merchantPublickey . '",
                     data: {
                         amount: 40100,
                         shipping_fee: 100,
@@ -218,8 +230,8 @@ class Klump extends PaymentModule
     private function installConfiguration()
     {
         // Set default values for configuration keys
-        foreach ($this->config_keys as $key) {
-            Configuration::updateValue($key, '');
+        foreach ($this->config_keys as $key => $val) {
+            Configuration::updateValue($key, $val);
         }
         return true;
     }
@@ -261,7 +273,8 @@ class Klump extends PaymentModule
             $live_public_key = Tools::getValue('LIVE_PUBLIC_KEY');
             $live_secret_key = Tools::getValue('LIVE_SECRET_KEY');
             $webhook_url = Tools::getValue('WEBHOOK_URL');
-            $enable_test_mode = Tools::getValue('ENABLE_TEST_MODE_OPTION_1') ? 1 : 0;
+            $enable_test_mode = Tools::getValue('ENABLE_TEST_MODE_OPTION_1') ? true : false;
+            $disable_klump = Tools::getValue('DISABLE_KLUMP_OPTION_1') ? false : true;
 
             // Initialize validation error array
             $errors = [];
@@ -297,6 +310,7 @@ class Klump extends PaymentModule
                 Configuration::updateValue('LIVE_SECRET_KEY', $live_secret_key);
                 Configuration::updateValue('WEBHOOK_URL', $webhook_url);
                 Configuration::updateValue('ENABLE_TEST_MODE_OPTION_1', $enable_test_mode);
+                Configuration::updateValue('DISABLE_KLUMP_OPTION_1', $disable_klump);
                 $output .= $this->displayConfirmation($this->l('Settings updated successfully'));
             }
         }
@@ -336,6 +350,9 @@ class Klump extends PaymentModule
 
         $helper->fields_value['WEBHOOK_URL'] = Tools::getValue('WEBHOOK_URL', Configuration::get('WEBHOOK_URL'));
         $helper->fields_value['ENABLE_TEST_MODE_OPTION_1'] = Tools::getValue('ENABLE_TEST_MODE_OPTION_1', Configuration::get('ENABLE_TEST_MODE_OPTION_1'));
+
+        $disable_klump = Configuration::get('DISABLE_KLUMP_OPTION_1') ? false : true;
+        $helper->fields_value['DISABLE_KLUMP_OPTION_1'] = Tools::getValue('DISABLE_KLUMP_OPTION_1', $disable_klump);
 
         // Define form fields
         $fields_form = [
@@ -381,7 +398,7 @@ class Klump extends PaymentModule
                         'label' => $this->l('Enable Test Mode'),
                         'name' => 'ENABLE_TEST_MODE', // This is the base name
                         'required' => false,
-                        'desc' => 'This will allow you to test your Klump BNPL integration without any real payments. This will not affect your live Klump BNPL integration.',
+                        'desc' => 'This will allow you to test your Klump BNPL integration without any real payments. Use this during development and testing. Uncheck this box when you are ready to go to production/live',
                         'values' => [
                             'query' => [
                                 ['id' => 'OPTION_1', 'name' => $this->l('Enable')]
@@ -389,7 +406,20 @@ class Klump extends PaymentModule
                             'id' => 'id',      // The ID of the checkbox
                             'name' => 'name'   // The display name of the checkbox
                         ]
-                    ]
+                        ], [
+                            'type' => 'checkbox',
+                            'label' => $this->l('Disable Klump'),
+                            'name' => 'DISABLE_KLUMP', // This is the base name
+                            'required' => false,
+                            'desc' => 'This will will remove Klump Buy Now, Pay Later from your checkout page.',
+                            'values' => [
+                                'query' => [
+                                    ['id' => 'OPTION_1', 'name' => $this->l('Disable')]
+                                ],
+                                'id' => 'id',      // The ID of the checkbox
+                                'name' => 'name'   // The display name of the checkbox
+                            ]
+                        ]
                 ],
                 'submit' => [
                     'title' => $this->l('Save'),
