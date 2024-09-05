@@ -58,7 +58,8 @@ class Klump extends PaymentModule
         return parent::install()
             && $this->registerHook('paymentOptions')
             && $this->registerHook('paymentReturn')
-            && $this->registerHook('actionFrontControllerSetMedia');
+            && $this->registerHook('actionFrontControllerSetMedia')
+            && $this->installConfiguration();
     }
 
     /**
@@ -69,7 +70,8 @@ class Klump extends PaymentModule
     public function uninstall()
     {
         return parent::uninstall()
-            && Configuration::deleteByName('KLUMP_NAME');
+            && Configuration::deleteByName('KLUMP_NAME')
+            && $this->uninstallConfiguration();
     }
 
     /**
@@ -138,6 +140,7 @@ class Klump extends PaymentModule
 
     /**
      * Generate Payment Form
+     * This form is displayed on the checkout page
      *
      * @return void
      */
@@ -204,5 +207,196 @@ class Klump extends PaymentModule
             </script>
         ';
         return $form;
+    }
+
+    /**
+     * Install configuration settings
+     *
+     * @return void
+     */
+    private function installConfiguration()
+    {
+        // Set default values for configuration keys
+        foreach ($this->config_keys as $key) {
+            Configuration::updateValue($key, '');
+        }
+        return true;
+    }
+
+    /**
+     * Uninstall the module's configuration settings
+     *
+     * @return void
+     */
+    private function uninstallConfiguration()
+    {
+        // Remove configuration keys
+        foreach ($this->config_keys as $key) {
+            Configuration::deleteByName($key);
+        }
+        return true;
+    }
+
+    /**
+     * Part of the configuration for the plugin
+     *
+     * @return void
+     */
+    public function getContent()
+    {
+        $output = '';
+
+        $publicTestKeyRegex = '/klp_pk_test_[a-zA-Z0-9]+/m';
+        $secretTestKeyRegex = '/klp_sk_test_[a-zA-Z0-9]+/m';
+
+        $publicLiveKeyRegex = '/klp_pk_[a-zA-Z0-9]+/m';
+        $secretLiveKeyRegex = '/klp_sk_[a-zA-Z0-9]+/m';
+
+        // Check if form is submitted
+        if (Tools::isSubmit('submitYourPaymentModule')) {
+            // Get submitted values
+            $test_public_key = Tools::getValue('TEST_PUBLIC_KEY');
+            $test_secret_key = Tools::getValue('TEST_SECRET_KEY');
+            $live_public_key = Tools::getValue('LIVE_PUBLIC_KEY');
+            $live_secret_key = Tools::getValue('LIVE_SECRET_KEY');
+            $webhook_url = Tools::getValue('WEBHOOK_URL');
+            $enable_test_mode = Tools::getValue('ENABLE_TEST_MODE_OPTION_1') ? 1 : 0;
+
+            // Initialize validation error array
+            $errors = [];
+
+            // validate test public key
+            if (empty($test_public_key) || preg_match($publicTestKeyRegex, $test_public_key) === 0) {
+                $errors[] = $this->l('Test public key is either empty or invalid. A valid test public keyy should be of the format klp_pk_test_xxxxxxxxxxxxxxx');;
+            }
+
+            // validate test secret key
+            if (empty($test_secret_key) || preg_match($secretTestKeyRegex, $test_secret_key) === 0) {
+                $errors[] = $this->l('Test secret key is either empty or invalid. A valid test secret key should be of the format klp_sk_test_xxxxxxxxxxxxxxx');
+            }
+
+            // validate live public key
+            if (empty($live_public_key) || preg_match($publicLiveKeyRegex, $live_public_key) === 0) {
+                $errors[] = $this->l('Live public key is either empty or invalid. A valid live public key should be of the format klp_pk_xxxxxxxxxxxxxxx');
+            }
+
+            // validate live secret key
+            if (empty($live_secret_key) || preg_match($secretLiveKeyRegex, $live_secret_key) === 0) {
+                $errors[] = $this->l('Live secret key is either empty or invalid. A valid live secret key should be of the format klp_sk_xxxxxxxxxxxxxxx');
+            }
+
+            // if error exist, display them
+            if (count($errors) > 0) {
+                $output .= $this->displayError(implode('<br>', $errors));
+            } else {
+                // Save configuration values
+                Configuration::updateValue('TEST_PUBLIC_KEY', $test_public_key);
+                Configuration::updateValue('TEST_SECRET_KEY', $test_secret_key);
+                Configuration::updateValue('LIVE_PUBLIC_KEY', $live_public_key);
+                Configuration::updateValue('LIVE_SECRET_KEY', $live_secret_key);
+                Configuration::updateValue('WEBHOOK_URL', $webhook_url);
+                Configuration::updateValue('ENABLE_TEST_MODE_OPTION_1', $enable_test_mode);
+                $output .= $this->displayConfirmation($this->l('Settings updated successfully'));
+            }
+        }
+
+        return $output . $this->renderForm();
+    }
+
+    /**
+     * This form is used at the Configuration page
+     * for the module. It will collect things like 
+     * API keys, etc.
+     *
+     * @return void
+     */
+    private function renderForm()
+    {
+        $helper = new HelperForm();
+
+        // Set form properties
+        $helper->show_toolbar = false;
+        $helper->table = $this->table;
+        $helper->name_controller = $this->name;
+        $helper->module = $this;
+        $helper->default_form_language = (int) Configuration::get('PS_LANG_DEFAULT');
+        $helper->allow_employee_form_lang = Configuration::get('PS_BO_ALLOW_EMPLOYEE_FORM_LANG') ? Configuration::get('PS_BO_ALLOW_EMPLOYEE_FORM_LANG') : 0;
+        $helper->identifier = $this->identifier;
+        $helper->submit_action = 'submitYourPaymentModule';
+        $helper->currentIndex = AdminController::$currentIndex . '&configure=' . $this->name;
+        $helper->token = Tools::getAdminTokenLite('AdminModules');
+
+        // Load current values
+        $helper->fields_value['TEST_PUBLIC_KEY'] = Tools::getValue('TEST_PUBLIC_KEY', Configuration::get('TEST_PUBLIC_KEY'));
+        $helper->fields_value['TEST_SECRET_KEY'] = Tools::getValue('TEST_SECRET_KEY', Configuration::get('TEST_SECRET_KEY'));
+
+        $helper->fields_value['LIVE_PUBLIC_KEY'] = Tools::getValue('LIVE_PUBLIC_KEY', Configuration::get('LIVE_PUBLIC_KEY'));
+        $helper->fields_value['LIVE_SECRET_KEY'] = Tools::getValue('LIVE_SECRET_KEY', Configuration::get('LIVE_SECRET_KEY'));
+
+        $helper->fields_value['WEBHOOK_URL'] = Tools::getValue('WEBHOOK_URL', Configuration::get('WEBHOOK_URL'));
+        $helper->fields_value['ENABLE_TEST_MODE_OPTION_1'] = Tools::getValue('ENABLE_TEST_MODE_OPTION_1', Configuration::get('ENABLE_TEST_MODE_OPTION_1'));
+
+        // Define form fields
+        $fields_form = [
+            'form' => [
+                'legend' => [
+                    'title' => $this->trans('Settings'),
+                    'icon' => 'icon-cogs'
+                ],
+                'description' => $this->l('Fill out the form below to activate Klump\'s BNPL. You can get the values for the form below by checking your merchant dashboard at https://merchant.useklump.com/settings'),
+                'input' => [
+                    [
+                        'type' => 'text',
+                        'label' => $this->l('Test Public Key'),
+                        'name' => 'TEST_PUBLIC_KEY',
+                        'size' => 40,
+                        'required' => true
+                    ],[
+                        'type' => 'text',
+                        'label' => $this->l('Test Secret Key'),
+                        'name' => 'TEST_SECRET_KEY',
+                        'size' => 40,
+                        'required' => true
+                    ],[
+                        'type' => 'text',
+                        'label' => $this->l('Live Public Key'),
+                        'name' => 'LIVE_PUBLIC_KEY',
+                        'size' => 40,
+                        'required' => true
+                    ],[
+                        'type' => 'text',
+                        'label' => $this->l('Live Secret Key'),
+                        'name' => 'LIVE_SECRET_KEY',
+                        'size' => 40,
+                        'required' => true
+                    ],[
+                        'type' => 'text',
+                        'label' => $this->l('Webhook URL'),
+                        'name' => 'WEBHOOK_URL',
+                        'size' => 40,
+                        'desc' => 'Please copy and paste this webhook URL on your API Keys & Webhooks tab of your settings page on your dashboard <strong><code>http://changene.com</code></strong> (<a href="https://merchant.useklump.com/settings" target="_blank">Klump Account</a>)'
+                    ],[
+                        'type' => 'checkbox',
+                        'label' => $this->l('Enable Test Mode'),
+                        'name' => 'ENABLE_TEST_MODE', // This is the base name
+                        'required' => false,
+                        'desc' => 'This will allow you to test your Klump BNPL integration without any real payments. This will not affect your live Klump BNPL integration.',
+                        'values' => [
+                            'query' => [
+                                ['id' => 'OPTION_1', 'name' => $this->l('Enable')]
+                            ],
+                            'id' => 'id',      // The ID of the checkbox
+                            'name' => 'name'   // The display name of the checkbox
+                        ]
+                    ]
+                ],
+                'submit' => [
+                    'title' => $this->l('Save'),
+                    'class' => 'btn btn-default pull-right'
+                ]
+            ]
+        ];
+
+        return $helper->generateForm([$fields_form]);
     }
 }
