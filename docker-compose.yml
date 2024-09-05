@@ -1,18 +1,30 @@
-version: '3'
 services:
     klump_mysql:
         container_name: klump_mysql
         image: mysql:5.7
         restart: unless-stopped
+        platform: linux/x86_64
         environment:
             MYSQL_ROOT_PASSWORD: admin
             MYSQL_DATABASE: prestashop
         networks:
             - prestashop_network
-    prestashop:
-        container_name: prestashop
+        volumes:
+            - dbdata:/var/lib/mysql
+
+    klump_prestashop:
+        container_name: klump_prestashop
         image: prestashop/prestashop:latest # Latest stable version of the PrestaShop, to see all available images go to ...
         restart: unless-stopped
+        platform: linux/x86_64
+        volumes:
+            - type: bind
+              source: ./modules/klump # local path to the module
+              target: /var/www/html/modules/klump # path to be mounted in the container
+            #- type: bind
+            #  source: ./themes/myTheme # local path to the theme
+            #  target:  /var/www/html/themes/myTheme # path to be mounted in the container
+            - psdata:/var/www/html
         depends_on:
             - klump_mysql
         ports:
@@ -22,9 +34,16 @@ services:
             DB_NAME: prestashop
             DB_USER: root
             DB_PASSWD: admin
-            PS_INSTALL_AUTO: 1
+            # PS_INSTALL_AUTO: 1
             PS_DOMAIN: localhost:8080
+            PS_FOLDER_ADMIN: admin4577
+            PS_FOLDER_INSTALL: install4577
+            ADMIN_MAIL: demo@prestashop.com
+            ADMIN_PASSWD: prestashop_demo
         networks:
             - prestashop_network
 networks:
     prestashop_network:
+volumes:
+    dbdata:
+    psdata:
