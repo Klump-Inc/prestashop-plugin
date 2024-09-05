@@ -96,10 +96,25 @@ class Klump extends PaymentModule
         }
 
         $newOption = new PaymentOption();
-        $newOption->setCallToActionText($this->trans('Pay in Instalments - Pay with Klump BNPL ', [], 'Modules.Klump.Shop'))
-                  ->setModuleName($this->name)
-                  ->setAction($this->context->link->getModuleLink($this->name, 'validation', [], true))
-                  ->setForm($this->generateForm());
+
+        // Set the label or name of the payment method
+        $newOption->setCallToActionText($this->trans(
+            'Pay with Klump Buy Now, Pay Later ', [], 'Modules.Klump.Shop')
+        );
+
+        // Set module name
+        $newOption->setModuleName($this->name);
+        
+        // Set the logo
+        $newOption->setLogo(Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/logo.png'));
+
+        // BNPL should only come in when a user has cart size more than N10,000
+        $cart = $this->context->cart;
+        if ($cart->getOrderTotal() < 10000) {
+            $newOption->setAdditionalInformation('<div class="alert alert-warning">Increase cart total value to at least <strong>N10,000</strong> in order to use Buy Now, Pay Later.</div>');
+        } else {
+            $newOption->setForm($this->generateForm());
+        }
 
         return [$newOption];
     }
@@ -154,11 +169,34 @@ class Klump extends PaymentModule
      * @return void
      */
     private function generateForm()
-    {
+    {   
+        // Get the merchant public key depending on the mode
         $merchantPublickey = Configuration::get('ENABLE_TEST_MODE_OPTION_1')
             ? Configuration::get('TEST_PUBLIC_KEY')
             : Configuration::get('LIVE_PUBLIC_KEY');
 
+        // Accessing cart information to populate checkout form
+        $cart = $this->context->cart;
+        if (!Validate::isLoadedObject($cart)) {
+            return [];
+        }
+
+        // Build products array with images
+        $products = [];
+        foreach ($cart->getProducts() as $product) {
+            $products[] = [
+                'image_url' => $this->context->link->getImageLink($product['link_rewrite'], $product['id_image']),
+                'item_url' => $this->context->link->getProductLink($product['id_product']),
+                'name' => $product['name'],
+                'unit_price' => $product['price'],
+                'quantity' => $product['cart_quantity']
+            ];
+        }
+
+        // Get customer information
+        $customer = new Customer((int) $cart->id_customer);
+
+        // Generate checkout form/button
         $form = '
             <form action="' . $this->context->link->getModuleLink($this->name, 'validation', [], true) . '" method="post">
                 <input type="hidden" name="klump_bnplpayment" value="1"/>
@@ -168,28 +206,17 @@ class Klump extends PaymentModule
                 const payload = {
                     publicKey: "' . $merchantPublickey . '",
                     data: {
-                        amount: 40100,
-                        shipping_fee: 100,
+                        amount: ' . $cart->getOrderTotal() . ',
+                        shipping_fee: ' . $cart->getOrderTotal(true, Cart::ONLY_SHIPPING) . ',
                         currency: "NGN",
-                        first_name: "John",
-                        last_name: "Doe",
-                        email: "john@example.com",
-                        phone: "08012345678",
-                        redirect_url: "https://verygoodmerchant.com/checkout/confirmation",
-                        merchant_reference: "what-ever-you-want-this-to-be",
+                        first_name: "' . $customer->firstname . '",
+                        last_name: "' . $customer->lastname . '",
+                        email: "' . $customer->email . '",
                         meta_data: {
-                        customer: "Elon Musk",
-                        email: "musk@spacex.com"
+                            customer: "' . $customer->firstname . ' ' . $customer->lastname . '",
+                            email: "' . $customer->email . '",
                         },
-                        items: [
-                            {
-                                image_url: "https://s3.amazonaws.com/uifaces/faces/twitter/ladylexy/128.jpg",
-                                item_url: "https://www.paypal.com/in/webapps/mpp/home",
-                                name: "Awesome item",
-                                unit_price: 20000,
-                                quantity: 2,
-                            }
-                        ]
+                        items: ' . json_encode($products) . '
                     },
                     onSuccess: (data) => {
                         console.log("html onSuccess will be handled by the merchant");
@@ -361,7 +388,7 @@ class Klump extends PaymentModule
                     'title' => $this->trans('Settings'),
                     'icon' => 'icon-cogs'
                 ],
-                'description' => $this->l('Fill out the form below to activate Klump\'s BNPL. You can get the values for the form below by checking your merchant dashboard at https://merchant.useklump.com/settings'),
+                'description' => 'Fill out the form below to activate Klump\'s BNPL. You can get the values for the form below by checking your <a href="https://merchant.useklump.com/settings">merchant dashboard</a>',
                 'input' => [
                     [
                         'type' => 'text',
