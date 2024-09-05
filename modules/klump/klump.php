@@ -67,6 +67,7 @@ class Klump extends PaymentModule
             && $this->registerHook('paymentOptions')
             && $this->registerHook('paymentReturn')
             && $this->registerHook('actionFrontControllerSetMedia')
+            && $this->registerHook('moduleRoutes')
             && $this->installConfiguration();
     }
 
@@ -116,6 +117,9 @@ class Klump extends PaymentModule
         $newOption->setCallToActionText($this->trans(
             'Pay with Klump Buy Now, Pay Later ', [], 'Modules.Klump.Shop')
         );
+
+        // Set webhook link
+        $newOption->setAction($this->context->link->getModuleLink($this->name, 'klump'));
 
         // Set module name
         $newOption->setModuleName($this->name);
@@ -223,7 +227,7 @@ class Klump extends PaymentModule
         $secretLiveKeyRegex = '/klp_sk_[a-zA-Z0-9]+/m';
 
         // Check if form is submitted
-        if (Tools::isSubmit('submitYourPaymentModule')) {
+        if (Tools::isSubmit('submitKlumpBNPL')) {
             // Get submitted values
             $test_public_key = Tools::getValue('TEST_PUBLIC_KEY');
             $test_secret_key = Tools::getValue('TEST_SECRET_KEY');
@@ -304,7 +308,7 @@ class Klump extends PaymentModule
         $helper->default_form_language = (int) Configuration::get('PS_LANG_DEFAULT');
         $helper->allow_employee_form_lang = Configuration::get('PS_BO_ALLOW_EMPLOYEE_FORM_LANG') ? Configuration::get('PS_BO_ALLOW_EMPLOYEE_FORM_LANG') : 0;
         $helper->identifier = $this->identifier;
-        $helper->submit_action = 'submitYourPaymentModule';
+        $helper->submit_action = 'submitKlumpBNPL';
         $helper->currentIndex = AdminController::$currentIndex . '&configure=' . $this->name;
         $helper->token = Tools::getAdminTokenLite('AdminModules');
 
@@ -337,7 +341,7 @@ class Klump extends PaymentModule
                         'size' => 40,
                         'required' => true
                     ],[
-                        'type' => 'text',
+                        'type' => 'password',
                         'label' => $this->l('Test Secret Key'),
                         'name' => 'TEST_SECRET_KEY',
                         'size' => 40,
@@ -349,17 +353,16 @@ class Klump extends PaymentModule
                         'size' => 40,
                         'required' => true
                     ],[
-                        'type' => 'text',
+                        'type' => 'password',
                         'label' => $this->l('Live Secret Key'),
                         'name' => 'LIVE_SECRET_KEY',
                         'size' => 40,
                         'required' => true
-                    ],[
-                        'type' => 'text',
+                    ],[ 
                         'label' => $this->l('Webhook URL'),
                         'name' => 'WEBHOOK_URL',
                         'size' => 40,
-                        'desc' => 'Please copy and paste this webhook URL on your API Keys & Webhooks tab of your settings page on your dashboard <strong><code>http://changene.com</code></strong> (<a href="https://merchant.useklump.com/settings" target="_blank">Klump Account</a>)'
+                        'desc' => 'Please copy and paste this webhook URL on your API Keys & Webhooks tab of your <a href="https://merchant.useklump.com/settings" target="_blank">settings page on your dashboard</a> &mdash; <strong><code>' . Tools::getHttpHost(true).__PS_BASE_URI__ . 'klump/webhook' . '</code></strong>'
                     ],[
                         'type' => 'checkbox',
                         'label' => $this->l('Enable Test Mode'),
@@ -484,5 +487,26 @@ class Klump extends PaymentModule
             </script>
         ';
         return $form;
+    }
+
+    /**
+     * Custom controller for webhook
+     *
+     * @param [type] $params
+     * @return void
+     */
+    public function hookModuleRoutes($params)
+    {
+        return array(
+            'module-klump-webhook' => array(
+                'controller' => 'Klump',
+                'rule' => 'klump/webhook', // Custom URL (e.g., www.yourshop.com/my-custom-url)
+                'keywords' => array(),
+                'params' => array(
+                    'fc' => 'module',
+                    'module' => $this->name,
+                ),
+            ),
+        );
     }
 }
