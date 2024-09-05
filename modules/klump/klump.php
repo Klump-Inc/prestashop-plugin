@@ -90,9 +90,24 @@ class Klump extends PaymentModule
      */
     public function hookPaymentOptions($params)
     {
-        // Check if the module is active and activate Klump BNPL
+        /**
+         * Check if the module is active and activate Klump BNPL
+         * on the store front.
+         */
         if (!$this->active) {
-            return [];
+            return '';
+        }
+
+        /**
+         * Make sure the plugin can be used by only Nigerian merchants
+         * else don't render checkout form
+         */
+        $id_default_currency = Configuration::get('PS_CURRENCY_DEFAULT');
+        $defaultCurrency = new Currency($id_default_currency);
+        $currency = $defaultCurrency->iso_code; // e.g., USD, EUR
+
+        if ($currency !== 'NGN') {
+            return '';
         }
 
         $newOption = new PaymentOption();
@@ -163,93 +178,6 @@ class Klump extends PaymentModule
     }
 
     /**
-     * Generate Payment Form
-     * This form is displayed on the checkout page
-     *
-     * @return void
-     */
-    private function generateForm()
-    {   
-        // Get the merchant public key depending on the mode
-        $merchantPublickey = Configuration::get('ENABLE_TEST_MODE_OPTION_1')
-            ? Configuration::get('TEST_PUBLIC_KEY')
-            : Configuration::get('LIVE_PUBLIC_KEY');
-
-        // Accessing cart information to populate checkout form
-        $cart = $this->context->cart;
-        if (!Validate::isLoadedObject($cart)) {
-            return [];
-        }
-
-        // Build products array with images
-        $products = [];
-        foreach ($cart->getProducts() as $product) {
-            $products[] = [
-                'image_url' => $this->context->link->getImageLink($product['link_rewrite'], $product['id_image']),
-                'item_url' => $this->context->link->getProductLink($product['id_product']),
-                'name' => $product['name'],
-                'unit_price' => $product['price'],
-                'quantity' => $product['cart_quantity']
-            ];
-        }
-
-        // Get customer information
-        $customer = new Customer((int) $cart->id_customer);
-
-        // Generate checkout form/button
-        $form = '
-            <form action="' . $this->context->link->getModuleLink($this->name, 'validation', [], true) . '" method="post">
-                <input type="hidden" name="klump_bnplpayment" value="1"/>
-            </form>
-            <div id="klump__checkout"></div>
-            <script>
-                const payload = {
-                    publicKey: "' . $merchantPublickey . '",
-                    data: {
-                        amount: ' . $cart->getOrderTotal() . ',
-                        shipping_fee: ' . $cart->getOrderTotal(true, Cart::ONLY_SHIPPING) . ',
-                        currency: "NGN",
-                        first_name: "' . $customer->firstname . '",
-                        last_name: "' . $customer->lastname . '",
-                        email: "' . $customer->email . '",
-                        meta_data: {
-                            customer: "' . $customer->firstname . ' ' . $customer->lastname . '",
-                            email: "' . $customer->email . '",
-                        },
-                        items: ' . json_encode($products) . '
-                    },
-                    onSuccess: (data) => {
-                        console.log("html onSuccess will be handled by the merchant");
-                        console.log(data);
-                        ok = data;
-                        return data;
-                    },
-                    onError: (data) => {
-                        console.log("html onError will be handled by the merchant");
-                        console.log(data);
-                    },
-                    onLoad: (data) => {
-                        console.log("html onLoad will be handled by the merchant");
-                        console.log(data);
-                    },
-                    onOpen: (data) => {
-                        console.log("html OnOpen will be handled by the merchant");
-                        console.log(data);
-                    },
-                    onClose: (data) => {
-                        console.log("html onClose will be handled by the merchant");
-                        console.log(data);
-                    }
-                }
-                document.getElementById("klump__checkout").addEventListener("click", function () {
-                    const klump = new Klump(payload);
-                });
-            </script>
-        ';
-        return $form;
-    }
-
-    /**
      * Install configuration settings
      *
      * @return void
@@ -279,6 +207,8 @@ class Klump extends PaymentModule
 
     /**
      * Part of the configuration for the plugin
+     *
+     * This is a backoffice operation
      *
      * @return void
      */
@@ -350,10 +280,20 @@ class Klump extends PaymentModule
      * for the module. It will collect things like 
      * API keys, etc.
      *
+     * This is a backoffice operation
+     *
      * @return void
      */
     private function renderForm()
     {
+
+        $id_default_currency = Configuration::get('PS_CURRENCY_DEFAULT');
+        $defaultCurrency = new Currency($id_default_currency);
+        $currency = $defaultCurrency->iso_code; // e.g., USD, EUR
+
+        if ($currency !== 'NGN') {
+            return '<div class="alert alert-warning">Please set your default currency to Nigerian Naira(NGN) before you can configure Klump\'s Buy Now, Pay Later</div>';
+        }
         $helper = new HelperForm();
 
         // Set form properties
@@ -456,5 +396,93 @@ class Klump extends PaymentModule
         ];
 
         return $helper->generateForm([$fields_form]);
+    }
+
+    /**
+     * Generate Payment Form
+     * This form is displayed on the checkout page
+     *
+     * This is a user facing/store operation
+     *
+     * @return void
+     */
+    private function generateForm()
+    {
+        // Get the merchant public key depending on the mode
+        $merchantPublickey = Configuration::get('ENABLE_TEST_MODE_OPTION_1')
+            ? Configuration::get('TEST_PUBLIC_KEY')
+            : Configuration::get('LIVE_PUBLIC_KEY');
+
+        // Accessing cart information to populate checkout form
+        $cart = $this->context->cart;
+        if (!Validate::isLoadedObject($cart)) {
+            return [];
+        }
+
+        // Build products array with images
+        $products = [];
+        foreach ($cart->getProducts() as $product) {
+            $products[] = [
+                'image_url' => $this->context->link->getImageLink($product['link_rewrite'], $product['id_image']),
+                'item_url' => $this->context->link->getProductLink($product['id_product']),
+                'name' => $product['name'],
+                'unit_price' => $product['price'],
+                'quantity' => $product['cart_quantity']
+            ];
+        }
+
+        // Get customer information
+        $customer = new Customer((int) $cart->id_customer);
+
+        // Generate checkout form/button
+        $form = '
+            <form>
+                <div id="klump__checkout"></div>
+            </form>
+            <script>
+                const payload = {
+                    publicKey: "' . $merchantPublickey . '",
+                    data: {
+                        amount: ' . $cart->getOrderTotal() . ',
+                        shipping_fee: ' . $cart->getOrderTotal(true, Cart::ONLY_SHIPPING) . ',
+                        currency: "NGN",
+                        first_name: "' . $customer->firstname . '",
+                        last_name: "' . $customer->lastname . '",
+                        email: "' . $customer->email . '",
+                        meta_data: {
+                            customer: "' . $customer->firstname . ' ' . $customer->lastname . '",
+                            email: "' . $customer->email . '",
+                        },
+                        items: ' . json_encode($products) . '
+                    },
+                    onSuccess: (data) => {
+                        console.log("html onSuccess will be handled by the merchant");
+                        console.log(data);
+                        ok = data;
+                        return data;
+                    },
+                    onError: (data) => {
+                        console.log("html onError will be handled by the merchant");
+                        console.log(data);
+                    },
+                    onLoad: (data) => {
+                        console.log("html onLoad will be handled by the merchant");
+                        console.log(data);
+                    },
+                    onOpen: (data) => {
+                        console.log("html OnOpen will be handled by the merchant");
+                        console.log(data);
+                    },
+                    onClose: (data) => {
+                        console.log("html onClose will be handled by the merchant");
+                        location.reload();
+                    }
+                }
+                document.getElementById("klump__checkout").addEventListener("click", function () {
+                    const klump = new Klump(payload);
+                });
+            </script>
+        ';
+        return $form;
     }
 }
