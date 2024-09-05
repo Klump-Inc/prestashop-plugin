@@ -45,7 +45,8 @@ class Klump extends PaymentModule
         }
 
         // Set logo
-        $this->logo = 'modules/' . $this->name . '/views/img/logo.png';
+        $this->logo = 'modules/' . $this->name . '/logo.png';
+        var_dump($this->logo);
     }
 
     /**
