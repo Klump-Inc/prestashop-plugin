@@ -42,11 +42,13 @@ class KlumpklumpModuleFrontController extends ModuleFrontController
         $webhook_result = $this->validatePayment($klump_data);
 
         if ($webhook_result['status'] && $webhook_result['result']['event'] == 'klump.payment.transaction.successful' && $webhook_result['result']['data']['status'] == 'successful') {
+            $order_reference = $webhook_result['result']['data']['reference'];
             $this->module->validateOrder(
                 (int)$cart->id,
                 Configuration::get('PS_OS_PAYMENT'),
                 $total,
                 $this->module->displayName,
+                'Klump Reference: '.$order_reference,
                 null,
                 [],
                 (int)$currency->id,
@@ -54,8 +56,9 @@ class KlumpklumpModuleFrontController extends ModuleFrontController
                 $customer->secure_key
             );
         }
-        header("HTTP/1.1 200 OK");
-        http_response_code(200);
+        // header("HTTP/1.1 200 OK");
+        // http_response_code(200);
+        Tools::redirect('index.php?controller=order-confirmation&id_cart='.$cart->id.'&id_module='.$this->module->id.'&id_order='.$this->module->currentOrder.'&key='.$customer->secure_key.'&reference='.$order_reference);
     }
 
     /**
@@ -68,7 +71,7 @@ class KlumpklumpModuleFrontController extends ModuleFrontController
         * Use the Klump verify paidment here. 
         */
                 
-        $merchantSeckey = Configuration::get('KLUMP_ENABLE_TEST_MODE_OPTION_1')
+        $merchantSeckey = Configuration::get('KLUMP_MODE')
             ? Configuration::get('KLUMP_TEST_SECRET_KEY')
             : Configuration::get('KLUMP_LIVE_SECRET_KEY');
 
