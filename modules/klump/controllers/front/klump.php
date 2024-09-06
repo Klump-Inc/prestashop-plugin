@@ -6,13 +6,17 @@ class KlumpklumpModuleFrontController extends ModuleFrontController
      */
     public function postProcess()
     {
-        $json = file_get_contents('php://input');
-        var_dump($this->module);
-        // $cart = $this->context->cart;
-        // return $cart;
+
+        // Get cart information
+        $cart = $this->context->cart;
+
         /**
-         * When no module isn't active
-         */
+         * Check that the cart is valid
+         */ 
+        if (!$cart) {
+            var_dump('Invalid cart');
+        }
+
         if (!$this->module->active) {
             Tools::redirect('index.php?controller=order');
         }
@@ -22,20 +26,7 @@ class KlumpklumpModuleFrontController extends ModuleFrontController
          * was entered and no active payment module was used.
          */
         if ($cart->id_customer == 0 || $cart->id_address_delivery == 0 || $cart->id_address_invoice == 0 || !$this->module->active) {
-            die($cart);
             Tools::redirect('index.php?controller=order&step=1');
-        }
-
-        // Check that this payment option is still available in case the customer changed his address just before the end of the checkout process
-        $authorized = false;
-        foreach (Module::getPaymentModules() as $module) {
-            if ($module['name'] == $this->moudule->name) {
-                $authorized = true;
-                break;
-            }
-        }
-        if (!$authorized) {
-            die($this->module->l('This payment method is not available.'));
         }
 
         $customer = new Customer($cart->id_customer);
@@ -47,21 +38,61 @@ class KlumpklumpModuleFrontController extends ModuleFrontController
         $total = (float)$cart->getOrderTotal(true, Cart::BOTH);
 
         // Process the payment here
-        // This is where you'd integrate with your BNPL provider's API
+        $klump_data = file_get_contents('php://input');
+        $webhook_result = $this->validatePayment($klump_data);
 
-        $this->module->validateOrder(
-            $cart->id,
-            Configuration::get('PS_OS_PAYMENT'),
-            $total,
-            $this->module->displayName,
-            null,
-            array(),
-            (int)$currency->id,
-            false,
-            $customer->secure_key
-        );
+        if ($webhook_result['status'] && $webhook_result['result']['data']['status'] == 'successful') {
+            $this->module->validateOrder(
+                (int)$cart->id,
+                Configuration::get('PS_OS_PAYMENT'),
+                $total,
+                $this->module->displayName,
+                null,
+                [],
+                (int)$currency->id,
+                false,
+                $customer->secure_key
+            );
+        }
+        header("HTTP/1.1 200 OK");
+        http_response_code(200);
+    }
 
-        Tools::redirect('index.php?controller=order-confirmation&id_cart='.$cart->id.'&id_module='.$this->module->id.'&id_order='.$this->module->currentOrder.'&key='.$customer->secure_key);
+    /**
+     * Validate payment from Klump
+     *
+     * @return void
+     */
+    private function validatePayment($klump_event_payload)
+    {   /**
+        * Use the Klump verify paidment here. 
+        */
+                
+        $merchantSeckey = Configuration::get('ENABLE_TEST_MODE_OPTION_1')
+            ? Configuration::get('TEST_SECRET_KEY')
+            : Configuration::get('LIVE_SECRET_KEY');
+
+        $klump_data = json_decode($klump_data, true);
+        $hash = hash_hmac('sha512', $klump_data, $merchantSeckey);
+        if ($hash === $_SERVER['x-klump-signature']) {
+            /**
+            * The request is verified and it's coming from Klump
+            * Go ahead and process it. While at it, return a 200 status code. when you are done.
+            */
+            if (isset($klump_data['event'])) {
+                if ($klump_data['event'] == 'klump.payment.transaction.successful') {
+                    return [
+                        'status' => true,
+                        'result' => $klump_data
+                    ];
+                }
+            }
+        }
+        /**
+         * 
+         */
+        header("HTTP/1.1 400 Bad Request");
+        http_response_code(400);
     }
 
     public function initContent()

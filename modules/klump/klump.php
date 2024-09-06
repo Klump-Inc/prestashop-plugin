@@ -449,6 +449,7 @@ class Klump extends PaymentModule
                         amount: ' . $cart->getOrderTotal() . ',
                         shipping_fee: ' . $cart->getOrderTotal(true, Cart::ONLY_SHIPPING) . ',
                         currency: "NGN",
+                        "redirect_url": "index.php?controller=order-confirmation&id_cart='.$cart->id.'&id_module='.$this->module->id.'&id_order='.$this->module->currentOrder.'&key='.$customer->secure_key.'";
                         first_name: "' . $customer->firstname . '",
                         last_name: "' . $customer->lastname . '",
                         email: "' . $customer->email . '",
@@ -459,10 +460,8 @@ class Klump extends PaymentModule
                         items: ' . json_encode($products) . '
                     },
                     onSuccess: (data) => {
-                        console.log("html onSuccess will be handled by the merchant");
+                        console.log("html onError will be handled by the merchant");
                         console.log(data);
-                        ok = data;
-                        return data;
                     },
                     onError: (data) => {
                         console.log("html onError will be handled by the merchant");

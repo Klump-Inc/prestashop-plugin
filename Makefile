@@ -11,3 +11,7 @@ rebuild:
 
 ssh_prestashop:
 	docker exec -it klump_prestashop bash /var/www/html/modules/klump
+
+#stop dashboard
+stop down:
+	clear && docker compose down --remove-orphans && docker compose rm
