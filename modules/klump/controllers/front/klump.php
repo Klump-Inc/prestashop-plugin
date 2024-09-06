@@ -68,9 +68,9 @@ class KlumpklumpModuleFrontController extends ModuleFrontController
         * Use the Klump verify paidment here. 
         */
                 
-        $merchantSeckey = Configuration::get('ENABLE_TEST_MODE_OPTION_1')
-            ? Configuration::get('TEST_SECRET_KEY')
-            : Configuration::get('LIVE_SECRET_KEY');
+        $merchantSeckey = Configuration::get('KLUMP_ENABLE_TEST_MODE_OPTION_1')
+            ? Configuration::get('KLUMP_TEST_SECRET_KEY')
+            : Configuration::get('KLUMP_LIVE_SECRET_KEY');
 
         $klump_data = json_decode($klump_data, true);
         $hash = hash_hmac('sha512', $klump_data, $merchantSeckey);

@@ -41,7 +41,7 @@ class Klump extends PaymentModule
         $this->confirmUninstall = $this->trans('Are you sure you want to uninstall?', [], 'Modules.Klump.Admin');
 
         // Is this plugin active
-        $this->active = Configuration::get('DISABLE_KLUMP_OPTION_1');
+        $this->active = Configuration::get('KLUMP_DISABLE_OPTION_1');
 
         // Set basic configuration options
         $this->config_keys = [
@@ -229,13 +229,13 @@ class Klump extends PaymentModule
         // Check if form is submitted
         if (Tools::isSubmit('submitKlumpBNPL')) {
             // Get submitted values
-            $test_public_key = Tools::getValue('TEST_PUBLIC_KEY');
-            $test_secret_key = Tools::getValue('TEST_SECRET_KEY');
-            $live_public_key = Tools::getValue('LIVE_PUBLIC_KEY');
-            $live_secret_key = Tools::getValue('LIVE_SECRET_KEY');
-            $webhook_url = Tools::getValue('WEBHOOK_URL');
-            $enable_test_mode = Tools::getValue('ENABLE_TEST_MODE_OPTION_1') ? true : false;
-            $disable_klump = Tools::getValue('DISABLE_KLUMP_OPTION_1') ? false : true;
+            $test_public_key = Tools::getValue('KLUMP_TEST_PUBLIC_KEY');
+            $test_secret_key = Tools::getValue('KLUMP_TEST_SECRET_KEY');
+            $live_public_key = Tools::getValue('KLUMP_LIVE_PUBLIC_KEY');
+            $live_secret_key = Tools::getValue('KLUMP_LIVE_SECRET_KEY');
+            $webhook_url = Tools::getValue('KLUMP_WEBHOOK_URL');
+            $enable_test_mode = Tools::getValue('KLUMP_ENABLE_TEST_MODE_OPTION_1') ? true : false;
+            $disable_klump = Tools::getValue('KLUMP_DISABLE_OPTION_1') ? false : true;
 
             // Initialize validation error array
             $errors = [];
@@ -265,13 +265,13 @@ class Klump extends PaymentModule
                 $output .= $this->displayError(implode('<br>', $errors));
             } else {
                 // Save configuration values
-                Configuration::updateValue('TEST_PUBLIC_KEY', $test_public_key);
-                Configuration::updateValue('TEST_SECRET_KEY', $test_secret_key);
-                Configuration::updateValue('LIVE_PUBLIC_KEY', $live_public_key);
-                Configuration::updateValue('LIVE_SECRET_KEY', $live_secret_key);
-                Configuration::updateValue('WEBHOOK_URL', $webhook_url);
-                Configuration::updateValue('ENABLE_TEST_MODE_OPTION_1', $enable_test_mode);
-                Configuration::updateValue('DISABLE_KLUMP_OPTION_1', $disable_klump);
+                Configuration::updateValue('KLUMP_TEST_PUBLIC_KEY', $test_public_key);
+                Configuration::updateValue('KLUMP_TEST_SECRET_KEY', $test_secret_key);
+                Configuration::updateValue('KLUMP_LIVE_PUBLIC_KEY', $live_public_key);
+                Configuration::updateValue('KLUMP_LIVE_SECRET_KEY', $live_secret_key);
+                Configuration::updateValue('KLUMP_WEBHOOK_URL', $webhook_url);
+                Configuration::updateValue('KLUMP_ENABLE_TEST_MODE_OPTION_1', $enable_test_mode);
+                Configuration::updateValue('KLUMP_DISABLE_OPTION_1', $disable_klump);
                 $output .= $this->displayConfirmation($this->l('Settings updated successfully'));
             }
         }
@@ -313,17 +313,17 @@ class Klump extends PaymentModule
         $helper->token = Tools::getAdminTokenLite('AdminModules');
 
         // Load current values
-        $helper->fields_value['TEST_PUBLIC_KEY'] = Tools::getValue('TEST_PUBLIC_KEY', Configuration::get('TEST_PUBLIC_KEY'));
-        $helper->fields_value['TEST_SECRET_KEY'] = Tools::getValue('TEST_SECRET_KEY', Configuration::get('TEST_SECRET_KEY'));
+        $helper->fields_value['KLUMP_TEST_PUBLIC_KEY'] = Tools::getValue('KLUMP_TEST_PUBLIC_KEY', Configuration::get('KLUMP_TEST_PUBLIC_KEY'));
+        $helper->fields_value['KLUMP_TEST_SECRET_KEY'] = Tools::getValue('KLUMP_TEST_SECRET_KEY', Configuration::get('KLUMP_TEST_SECRET_KEY'));
 
-        $helper->fields_value['LIVE_PUBLIC_KEY'] = Tools::getValue('LIVE_PUBLIC_KEY', Configuration::get('LIVE_PUBLIC_KEY'));
-        $helper->fields_value['LIVE_SECRET_KEY'] = Tools::getValue('LIVE_SECRET_KEY', Configuration::get('LIVE_SECRET_KEY'));
+        $helper->fields_value['KLUMP_LIVE_PUBLIC_KEY'] = Tools::getValue('KLUMP_LIVE_PUBLIC_KEY', Configuration::get('KLUMP_LIVE_PUBLIC_KEY'));
+        $helper->fields_value['KLUMP_LIVE_SECRET_KEY'] = Tools::getValue('KLUMP_LIVE_SECRET_KEY', Configuration::get('KLUMP_LIVE_SECRET_KEY'));
 
-        $helper->fields_value['WEBHOOK_URL'] = Tools::getValue('WEBHOOK_URL', Configuration::get('WEBHOOK_URL'));
-        $helper->fields_value['ENABLE_TEST_MODE_OPTION_1'] = Tools::getValue('ENABLE_TEST_MODE_OPTION_1', Configuration::get('ENABLE_TEST_MODE_OPTION_1'));
+        $helper->fields_value['KLUMP_WEBHOOK_URL'] = Tools::getValue('KLUMP_WEBHOOK_URL', Configuration::get('KLUMP_WEBHOOK_URL'));
+        $helper->fields_value['KLUMP_ENABLE_TEST_MODE_OPTION_1'] = Tools::getValue('KLUMP_ENABLE_TEST_MODE_OPTION_1', Configuration::get('KLUMP_ENABLE_TEST_MODE_OPTION_1'));
 
-        $disable_klump = Configuration::get('DISABLE_KLUMP_OPTION_1') ? false : true;
-        $helper->fields_value['DISABLE_KLUMP_OPTION_1'] = Tools::getValue('DISABLE_KLUMP_OPTION_1', $disable_klump);
+        $disable_klump = Configuration::get('KLUMP_DISABLE_OPTION_1') ? false : true;
+        $helper->fields_value['KLUMP_DISABLE_OPTION_1'] = Tools::getValue('KLUMP_DISABLE_OPTION_1', $disable_klump);
 
         // Define form fields
         $fields_form = [
@@ -337,36 +337,36 @@ class Klump extends PaymentModule
                     [
                         'type' => 'text',
                         'label' => $this->l('Test Public Key'),
-                        'name' => 'TEST_PUBLIC_KEY',
+                        'name' => 'KLUMP_TEST_PUBLIC_KEY',
                         'size' => 40,
                         'required' => true
                     ],[
                         'type' => 'password',
                         'label' => $this->l('Test Secret Key'),
-                        'name' => 'TEST_SECRET_KEY',
+                        'name' => 'KLUMP_TEST_SECRET_KEY',
                         'size' => 40,
                         'required' => true
                     ],[
                         'type' => 'text',
                         'label' => $this->l('Live Public Key'),
-                        'name' => 'LIVE_PUBLIC_KEY',
+                        'name' => 'KLUMP_LIVE_PUBLIC_KEY',
                         'size' => 40,
                         'required' => true
                     ],[
                         'type' => 'password',
                         'label' => $this->l('Live Secret Key'),
-                        'name' => 'LIVE_SECRET_KEY',
+                        'name' => 'KLUMP_LIVE_SECRET_KEY',
                         'size' => 40,
                         'required' => true
                     ],[ 
                         'label' => $this->l('Webhook URL'),
-                        'name' => 'WEBHOOK_URL',
+                        'name' => 'KLUMP_WEBHOOK_URL',
                         'size' => 40,
                         'desc' => 'Please copy and paste this webhook URL on your API Keys & Webhooks tab of your <a href="https://merchant.useklump.com/settings" target="_blank">settings page on your dashboard</a> &mdash; <strong><code>' . Tools::getHttpHost(true).__PS_BASE_URI__ . 'klump/webhook' . '</code></strong>'
                     ],[
                         'type' => 'checkbox',
                         'label' => $this->l('Enable Test Mode'),
-                        'name' => 'ENABLE_TEST_MODE', // This is the base name
+                        'name' => 'KLUMP_ENABLE_TEST_MODE', // This is the base name
                         'required' => false,
                         'desc' => 'This will allow you to test your Klump BNPL integration without any real payments. Use this during development and testing. Uncheck this box when you are ready to go to production/live',
                         'values' => [
@@ -379,7 +379,7 @@ class Klump extends PaymentModule
                         ], [
                             'type' => 'checkbox',
                             'label' => $this->l('Disable Klump'),
-                            'name' => 'DISABLE_KLUMP', // This is the base name
+                            'name' => 'KLUMP_DISABLE', // This is the base name
                             'required' => false,
                             'desc' => 'This will will remove Klump Buy Now, Pay Later from your checkout page.',
                             'values' => [
@@ -412,9 +412,9 @@ class Klump extends PaymentModule
     private function generateForm()
     {
         // Get the merchant public key depending on the mode
-        $merchantPublickey = Configuration::get('ENABLE_TEST_MODE_OPTION_1')
-            ? Configuration::get('TEST_PUBLIC_KEY')
-            : Configuration::get('LIVE_PUBLIC_KEY');
+        $merchantPublickey = Configuration::get('KLUMP_ENABLE_TEST_MODE_OPTION_1')
+            ? Configuration::get('KLUMP_TEST_PUBLIC_KEY')
+            : Configuration::get('KLUMP_LIVE_PUBLIC_KEY');
 
         // Accessing cart information to populate checkout form
         $cart = $this->context->cart;
