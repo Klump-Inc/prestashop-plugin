@@ -41,7 +41,7 @@ class KlumpklumpModuleFrontController extends ModuleFrontController
         $klump_data = file_get_contents('php://input');
         $webhook_result = $this->validatePayment($klump_data);
 
-        if ($webhook_result['status'] && $webhook_result['result']['data']['status'] == 'successful') {
+        if ($webhook_result['status'] && $webhook_result['result']['event'] == 'klump.payment.transaction.successful' && $webhook_result['result']['data']['status'] == 'successful') {
             $this->module->validateOrder(
                 (int)$cart->id,
                 Configuration::get('PS_OS_PAYMENT'),
@@ -80,12 +80,10 @@ class KlumpklumpModuleFrontController extends ModuleFrontController
             * Go ahead and process it. While at it, return a 200 status code. when you are done.
             */
             if (isset($klump_data['event'])) {
-                if ($klump_data['event'] == 'klump.payment.transaction.successful') {
-                    return [
-                        'status' => true,
-                        'result' => $klump_data
-                    ];
-                }
+                return [
+                    'status' => true,
+                    'result' => $klump_data
+                ];
             }
         }
         /**
