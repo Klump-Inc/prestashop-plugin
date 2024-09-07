@@ -7,8 +7,7 @@
  * @copyright 2024 Klump Inc. and Contributors
  * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
  */
-
- use PrestaShop\PrestaShop\Core\Payment\PaymentOption;
+use PrestaShop\PrestaShop\Core\Payment\PaymentOption;
 
 if (!defined('_PS_VERSION_')) {
     exit;
@@ -33,6 +32,8 @@ class Klump extends PaymentModule
             'max' => _PS_VERSION_
         ];
         $this->bootstrap = true;
+
+        $this->controllers = ['validation', 'checkout'];
 
         parent::__construct();
 
@@ -74,7 +75,6 @@ class Klump extends PaymentModule
             'KLUMP_TEST_SECRET_KEY' => '',
             'KLUMP_LIVE_PUBLIC_KEY' => '',
             'KLUMP_LIVE_SECRET_KEY' => '',
-            'KLUMP_WEBHOOK_URL' => '',
             'KLUMP_MODE' => '',
             'KLUMP_DISABLE' => ''
         ];
@@ -97,7 +97,6 @@ class Klump extends PaymentModule
         return parent::install()
             && $this->registerHook('paymentOptions')
             && $this->registerHook('paymentReturn')
-            && $this->registerHook('actionFrontControllerSetMedia')
             && $this->registerHook('moduleRoutes')
             && $this->installConfiguration();
     }
@@ -166,6 +165,12 @@ class Klump extends PaymentModule
             return '';
         }
 
+        $gateway_chosen = 'none';
+
+        if (Tools::getValue('gateway') == 'klump') {
+            $gateway_chosen = 'klump';
+        }
+
         $newOption = new PaymentOption();
 
         // Set the label or name of the payment method
@@ -173,8 +178,8 @@ class Klump extends PaymentModule
             'Pay with Klump Buy Now, Pay Later ', [], 'Modules.Klump.Shop')
         );
 
-        // Set webhook link
-        $newOption->setAction($this->context->link->getModuleLink($this->name, 'klump'));
+        // Checkout
+        $newOption->setAction($this->context->link->getModuleLink($this->name, 'checkout', [], true));
 
         // Set module name
         $newOption->setModuleName($this->name);
@@ -182,14 +187,29 @@ class Klump extends PaymentModule
         // Set the logo
         $newOption->setLogo(Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/logo.png'));
 
+        /**
+         * This is injected into the form. This way,
+         * the user gets redirected automatically if they ever select klump
+         */
+        $newOption->setInputs([
+            'klump_iframe' => [
+                'name' =>'klump_iframe',
+                'type' =>'hidden',
+                'value' =>'1',
+            ]
+        ]);
+
         // BNPL should only come in when a user has cart size more than N10,000
         $cart = $this->context->cart;
-
 
         if ($cart->getOrderTotal() < 10000) {
             $newOption->setAdditionalInformation('<div class="alert alert-warning">Increase cart total value to at least <strong>N10,000</strong> in order to use Buy Now, Pay Later.</div>');
         } else {
-            $newOption->setForm($this->generateForm());
+            if ($gateway_chosen == 'klump') {
+                $newOption->setAdditionalInformation(
+                    $this->generateForm()
+                );
+            }
         }
 
         return [$newOption];
@@ -235,85 +255,33 @@ class Klump extends PaymentModule
 
         // Get customer information
         $customer = new Customer((int) $cart->id_customer);
-        $merchant_reference = 'order_' . $cart->id . '_' . time();
+        $id_address = Address::getFirstCustomerAddressId($customer->id);
 
-        $this->context->smarty->assign([
-            'gateway_chosen' => $this->name,
-            'form_url'       => $this->context->link->getModuleLink($this->name, 'klump/webhook', [], true),
-        ]);
-
-        // Generate checkout form/button
-        $form = '
-            <form>
-                <div id="klump__checkout"></div>
-            </form>
-            <script>
-                const payload = {
-                    publicKey: "' . $merchantPublickey . '",
-                    data: {
-                        amount: ' . $cart->getOrderTotal() . ',
-                        shipping_fee: ' . $cart->getOrderTotal(true, Cart::ONLY_SHIPPING) . ',
-                        currency: "' . $this->default_currency. '",
-                        redirect_url: "' .  Tools::getHttpHost(true).__PS_BASE_URI__ . "index.php?controller=order-confirmation&id_cart='.$cart->id.'&id_module='.$this->module->id.'&id_order='.$this->module->currentOrder.'&key='.$customer->secure_key.'" . '",
-                        merchant_reference: "' . $merchant_reference . '",
-                        first_name: "' . $customer->firstname . '",
-                        last_name: "' . $customer->lastname . '",
-                        email: "' . $customer->email . '",
-                        meta_data: {
-                            customer: "' . $customer->firstname . ' ' . $customer->lastname . '",
-                            email: "' . $customer->email . '",
-                        },
-                        items: ' . json_encode($products) . '
-                    },
-                    onSuccess: (data) => {
-                        console.log("html onError will be handled by the merchant");
-                        console.log(data);
-                    },
-                    onError: (data) => {
-                        console.log("html onError will be handled by the merchant");
-                        console.log(data);
-                    },
-                    onLoad: (data) => {
-                        console.log("html onLoad will be handled by the merchant");
-                        console.log(data);
-                    },
-                    onOpen: (data) => {
-                        console.log("html OnOpen will be handled by the merchant");
-                        console.log(data);
-                    },
-                    onClose: (data) => {
-                        console.log("html onClose will be handled by the merchant");
-                        location.reload();
-                    }
-                }
-                document.getElementById("klump__checkout").addEventListener("click", function () {
-                    const klump = new Klump(payload);
-                });
-            </script>
-        ';
-        return $form;
-    }
-
-    /**
-     * Inject Klump JS
-     *
-     * @return void
-     */
-    public function hookActionFrontControllerSetMedia()
-    {
-        // Check if we're on the order page
-        if ($this->context->controller->php_self == 'order') {
-            $this->context->controller->registerJavascript(
-                'buynowpaylater-external',
-                'https://js.useklump.com/klump.js',
-                [
-                    'position' => 'head',
-                    'priority' => 100,
-                    'server' => 'remote',
-                    'attributes' => 'defer'
-                ]
-            );
+        $params = [
+            'merchant_public_key' => $merchantPublickey,
+            'merchant_reference' => 'order_' . $cart->id . '_' . time(),
+            'amount' => $cart->getOrderTotal(),
+            'currency' => $this->default_currency,
+            'customer' =>$customer->firstname . ' ' . $customer->lastname,
+            'customer_first_name' => $customer->firstname,
+            'customer_last_name' => $customer->lastname,
+            'customer_email' => $customer->email,
+            'items' => json_encode($products, JSON_PRETTY_PRINT),
+            'shipping_fee' => $cart->getOrderTotal(true, Cart::ONLY_SHIPPING),
+            'gateway_chosen' => 'klump',
+            'redirect_url' => $this->context->link->getModuleLink($this->name, 'validation', [], true)
+        ];
+    
+        if ($id_address) {
+            $address = new Address($id_address);
+            $phone = $address->phone;
+            $params['customer_phone'] = $phone;
         }
+
+        $this->context->smarty->assign(
+            $params
+        );
+        return $this->context->smarty->fetch('module:klump/views/templates/front/checkout.tpl');
     }
 
     /**
@@ -361,7 +329,6 @@ class Klump extends PaymentModule
             $test_secret_key = Tools::getValue('KLUMP_TEST_SECRET_KEY');
             $live_public_key = Tools::getValue('KLUMP_LIVE_PUBLIC_KEY');
             $live_secret_key = Tools::getValue('KLUMP_LIVE_SECRET_KEY');
-            $webhook_url = Tools::getValue('KLUMP_WEBHOOK_URL');
             $enable_test_mode = Tools::getValue('KLUMP_MODE') ? true : false;
             $disable_klump = Tools::getValue('KLUMP_DISABLE') ? false : true;
 
@@ -397,7 +364,6 @@ class Klump extends PaymentModule
                 Configuration::updateValue('KLUMP_TEST_SECRET_KEY', $test_secret_key);
                 Configuration::updateValue('KLUMP_LIVE_PUBLIC_KEY', $live_public_key);
                 Configuration::updateValue('KLUMP_LIVE_SECRET_KEY', $live_secret_key);
-                Configuration::updateValue('KLUMP_WEBHOOK_URL', $webhook_url);
                 Configuration::updateValue('KLUMP_MODE', $enable_test_mode);
                 Configuration::updateValue('KLUMP_DISABLE', $disable_klump);
                 $output .= $this->displayConfirmation($this->trans('Settings updated successfully'));
@@ -446,7 +412,6 @@ class Klump extends PaymentModule
         $helper->fields_value['KLUMP_LIVE_PUBLIC_KEY'] = Tools::getValue('KLUMP_LIVE_PUBLIC_KEY', Configuration::get('KLUMP_LIVE_PUBLIC_KEY'));
         $helper->fields_value['KLUMP_LIVE_SECRET_KEY'] = Tools::getValue('KLUMP_LIVE_SECRET_KEY', Configuration::get('KLUMP_LIVE_SECRET_KEY'));
 
-        $helper->fields_value['KLUMP_WEBHOOK_URL'] = Tools::getValue('KLUMP_WEBHOOK_URL', Configuration::get('KLUMP_WEBHOOK_URL'));
         $helper->fields_value['KLUMP_MODE'] = Tools::getValue('KLUMP_MODE', Configuration::get('KLUMP_MODE'));
 
         $disable_klump = Configuration::get('KLUMP_DISABLE') ? false : true;
@@ -503,11 +468,6 @@ class Klump extends PaymentModule
                         'name' => 'KLUMP_LIVE_SECRET_KEY',
                         'size' => 40,
                         'required' => true
-                    ],[ 
-                        'label' => $this->trans('Webhook URL'),
-                        'name' => 'KLUMP_WEBHOOK_URL',
-                        'size' => 40,
-                        'desc' => 'Please copy and paste this webhook URL on your API Keys & Webhooks tab of your <a href="https://merchant.useklump.com/settings" target="_blank">settings page on your dashboard</a> &mdash; <strong><code>' . Tools::getHttpHost(true).__PS_BASE_URI__ . 'klump/webhook' . '</code></strong>'
                     ],[
                         'type' => 'switch',
                         'label' => $this->trans('Disable Klump on Cart Page'),
