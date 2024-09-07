@@ -34,7 +34,7 @@ class Klump extends PaymentModule
         ];
         $this->bootstrap = true;
 
-        $this->controllers = ['klump', 'validation'];
+        $this->controllers = ['validation'];
 
         parent::__construct();
 
@@ -73,7 +73,7 @@ class Klump extends PaymentModule
         $this->config_keys = [
             'KLUMP_NAME' => 'Klump',
             'KLUMP_TEST_PUBLIC_KEY' => '',
-            'KLUMP_TEST_SECRET_KEY' => '',
+            '' => '',
             'KLUMP_LIVE_PUBLIC_KEY' => '',
             'KLUMP_LIVE_SECRET_KEY' => '',
             'KLUMP_WEBHOOK_URL' => '',
@@ -180,16 +180,16 @@ class Klump extends PaymentModule
             'Pay with Klump Buy Now, Pay Later ', [], 'Modules.Klump.Shop')
         );
 
-        // Set webhook link
-        // $newOption->setAction($this->context->link->getModuleLink($this->name, 'klump'));
-        $newOption->setAction($this->context->link->getModuleLink($this->name, 'validation', [], true));
-
         // Set module name
         $newOption->setModuleName($this->name);
         
         // Set the logo
         $newOption->setLogo(Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/logo.png'));
 
+        /**
+         * This is injected into the form. This way,
+         * the user gets redirected automatically if they ever select klump
+         */
         $newOption->setInputs([
             'klump_iframe' => [
                 'name' =>'klump_iframe',
@@ -266,6 +266,7 @@ class Klump extends PaymentModule
             'items' => json_encode($products, JSON_PRETTY_PRINT),
             'shipping_fee' => $cart->getOrderTotal(true, Cart::ONLY_SHIPPING),
             'gateway_chosen' => 'klump',
+            'redirect_url' => $this->context->link->getModuleLink($this->name, 'validation', [], true)
         ];
 
         $this->context->smarty->assign(

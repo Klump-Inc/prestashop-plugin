@@ -2,6 +2,8 @@
 * Klump
 *}
 {if isset($gateway_chosen) && $gateway_chosen == 'klump'}
+<form method="POST" id="klump_form" action="{$form_url}">
+</form>
 <div id='klump__checkout'></div>
 <script src="https://js.useklump.com/klump.js"></script>
 <script type="text/javascript">
@@ -25,34 +27,32 @@
                         'https://s3.amazonaws.com/uifaces/faces/twitter/ladylexy/128.jpg',
                     item_url: 'https://www.paypal.com/in/webapps/mpp/home',
                     name: 'Awesome item',
-                    unit_price: 2000,
-                    quantity: 2,
+                    unit_price: 130000,
+                    quantity: 1,
                 }
             ]
         },
         onSuccess: (data) => {
-            console.log('html onSuccess will be handled by the merchant');
+            location.href = '{$redirect_url}?reference=' + data.reference;
             console.log(data);
-            ok = data;
-            return data;
         },
         onError: (data) => {
-            console.log('html onError will be handled by the merchant');
             console.log(data);
         },
         onLoad: (data) => {
-            console.log('html onLoad will be handled by the merchant');
             console.log(data);
         },
         onOpen: (data) => {
-            console.log('html OnOpen will be handled by the merchant');
             console.log(data);
         },
         onClose: (data) => {
-            console.log('html onClose will be handled by the merchant');
             console.log(data);
         }
     }
+    /**
+    * Event listener is simulated here. This way, the checkout popup is activated with
+    * almost no action from the user.
+    */
     const klumpBtn = document.getElementById('klump__checkout');
 
     klumpBtn.addEventListener('click', function(e) {
