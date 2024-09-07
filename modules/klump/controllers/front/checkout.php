@@ -29,7 +29,7 @@ class KlumpCheckoutModuleFrontController extends ModuleFrontController
         }
 
         if (!$authorized) {
-            die($this->module->getTranslator()->trans('This payment method is not available.', array(), 'Modules.Paystack.Shop'));
+            die($this->module->getTranslator()->trans('This payment method is not available.', [], 'Modules.Klump.Shop'));
         }
 		
 		if ((int)Tools::getValue('klump_iframe') == 1) {
