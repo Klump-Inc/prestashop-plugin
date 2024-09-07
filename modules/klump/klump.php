@@ -73,10 +73,9 @@ class Klump extends PaymentModule
         $this->config_keys = [
             'KLUMP_NAME' => 'Klump',
             'KLUMP_TEST_PUBLIC_KEY' => '',
-            '' => '',
+            'KLUMP_TEST_SECRET_KEY' => '',
             'KLUMP_LIVE_PUBLIC_KEY' => '',
             'KLUMP_LIVE_SECRET_KEY' => '',
-            'KLUMP_WEBHOOK_URL' => '',
             'KLUMP_MODE' => '',
             'KLUMP_DISABLE' => ''
         ];
@@ -320,7 +319,6 @@ class Klump extends PaymentModule
             $test_secret_key = Tools::getValue('KLUMP_TEST_SECRET_KEY');
             $live_public_key = Tools::getValue('KLUMP_LIVE_PUBLIC_KEY');
             $live_secret_key = Tools::getValue('KLUMP_LIVE_SECRET_KEY');
-            $webhook_url = Tools::getValue('KLUMP_WEBHOOK_URL');
             $enable_test_mode = Tools::getValue('KLUMP_MODE') ? true : false;
             $disable_klump = Tools::getValue('KLUMP_DISABLE') ? false : true;
 
@@ -356,7 +354,6 @@ class Klump extends PaymentModule
                 Configuration::updateValue('KLUMP_TEST_SECRET_KEY', $test_secret_key);
                 Configuration::updateValue('KLUMP_LIVE_PUBLIC_KEY', $live_public_key);
                 Configuration::updateValue('KLUMP_LIVE_SECRET_KEY', $live_secret_key);
-                Configuration::updateValue('KLUMP_WEBHOOK_URL', $webhook_url);
                 Configuration::updateValue('KLUMP_MODE', $enable_test_mode);
                 Configuration::updateValue('KLUMP_DISABLE', $disable_klump);
                 $output .= $this->displayConfirmation($this->trans('Settings updated successfully'));
@@ -405,7 +402,6 @@ class Klump extends PaymentModule
         $helper->fields_value['KLUMP_LIVE_PUBLIC_KEY'] = Tools::getValue('KLUMP_LIVE_PUBLIC_KEY', Configuration::get('KLUMP_LIVE_PUBLIC_KEY'));
         $helper->fields_value['KLUMP_LIVE_SECRET_KEY'] = Tools::getValue('KLUMP_LIVE_SECRET_KEY', Configuration::get('KLUMP_LIVE_SECRET_KEY'));
 
-        $helper->fields_value['KLUMP_WEBHOOK_URL'] = Tools::getValue('KLUMP_WEBHOOK_URL', Configuration::get('KLUMP_WEBHOOK_URL'));
         $helper->fields_value['KLUMP_MODE'] = Tools::getValue('KLUMP_MODE', Configuration::get('KLUMP_MODE'));
 
         $disable_klump = Configuration::get('KLUMP_DISABLE') ? false : true;
@@ -462,11 +458,6 @@ class Klump extends PaymentModule
                         'name' => 'KLUMP_LIVE_SECRET_KEY',
                         'size' => 40,
                         'required' => true
-                    ],[ 
-                        'label' => $this->trans('Webhook URL'),
-                        'name' => 'KLUMP_WEBHOOK_URL',
-                        'size' => 40,
-                        'desc' => 'Please copy and paste this webhook URL on your API Keys & Webhooks tab of your <a href="https://merchant.useklump.com/settings" target="_blank">settings page on your dashboard</a> &mdash; <strong><code>' . Tools::getHttpHost(true).__PS_BASE_URI__ . 'klump/webhook' . '</code></strong>'
                     ],[
                         'type' => 'switch',
                         'label' => $this->trans('Disable Klump on Cart Page'),

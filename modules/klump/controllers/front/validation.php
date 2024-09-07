@@ -118,6 +118,12 @@ class KlumpValidationModuleFrontController extends ModuleFrontController
         }
     }
 
+    /**
+     * Verify a transaction from Klump
+     *
+     * @param [string] $reference
+     * @return array
+     */
     private function verifyPayment($reference) 
     {
         // Get the merchant public key depending on the mode
