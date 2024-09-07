@@ -108,7 +108,7 @@ class KlumpValidationModuleFrontController extends ModuleFrontController
 				Configuration::get('PS_OS_PAYMENT'),
 				$total,
 				$this->module->displayName,
-				'Paystack Reference: '.$reference,
+				'Klump Reference: '.$reference,
 				$extra_vars,
 				(int)$cart->id_currency,
 				false,

@@ -34,7 +34,7 @@ class Klump extends PaymentModule
         ];
         $this->bootstrap = true;
 
-        $this->controllers = ['validation'];
+        $this->controllers = ['validation', 'checkout'];
 
         parent::__construct();
 
@@ -179,6 +179,9 @@ class Klump extends PaymentModule
             'Pay with Klump Buy Now, Pay Later ', [], 'Modules.Klump.Shop')
         );
 
+        // Checkout
+        $newOption->setAction($this->context->link->getModuleLink($this->name, 'checkout', [], true));
+
         // Set module name
         $newOption->setModuleName($this->name);
         
@@ -253,12 +256,14 @@ class Klump extends PaymentModule
 
         // Get customer information
         $customer = new Customer((int) $cart->id_customer);
+        $id_address = Address::getFirstCustomerAddressId($customer->id);
+
         $params = [
             'merchant_public_key' => $merchantPublickey,
             'merchant_reference' => 'order_' . $cart->id . '_' . time(),
             'amount' => $cart->getOrderTotal(),
             'currency' => $this->default_currency,
-            'customer' => $first_name . ' ' . $last_name,
+            'customer' =>$customer->firstname . ' ' . $customer->lastname,
             'customer_first_name' => $customer->firstname,
             'customer_last_name' => $customer->lastname,
             'customer_email' => $customer->email,
@@ -267,6 +272,12 @@ class Klump extends PaymentModule
             'gateway_chosen' => 'klump',
             'redirect_url' => $this->context->link->getModuleLink($this->name, 'validation', [], true)
         ];
+    
+        if ($id_address) {
+            $address = new Address($id_address);
+            $phone = $address->phone;
+            $params['customer_phone'] = $phone;
+        }
 
         $this->context->smarty->assign(
             $params

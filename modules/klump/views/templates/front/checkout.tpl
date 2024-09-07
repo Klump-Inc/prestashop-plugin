@@ -2,39 +2,44 @@
 * Klump
 *}
 {if isset($gateway_chosen) && $gateway_chosen == 'klump'}
-<form method="POST" id="klump_form" action="{$form_url}">
+<form method="POST" id="klump_form">
 </form>
 <div id='klump__checkout'></div>
 <script src="https://js.useklump.com/klump.js"></script>
 <script type="text/javascript">
+    const dataInfo = {
+        amount: {$amount},
+        shipping_fee: {$shipping_fee},
+        currency: '{$currency}',
+        merchant_reference: '{$merchant_reference}',
+        first_name: '{$customer_first_name}',
+        last_name: '{$customer_last_name}',
+        
+        email: '{$customer_email}',
+        meta_data: {
+            customer: '{$customer}',
+            email: '{$customer_email}',
+        },
+        items: [
+            {
+                image_url:
+                    'https://s3.amazonaws.com/uifaces/faces/twitter/ladylexy/128.jpg',
+                item_url: 'https://www.paypal.com/in/webapps/mpp/home',
+                name: 'Awesome item',
+                unit_price: 22000,
+                quantity: 1,
+            }
+        ]
+    };
+    {if isset($customer_phone)}
+        dataInfo.phone = '{$customer_phone}'
+    {/if}
 	const payload = {
         publicKey: '{$merchant_public_key}',
-        data: {
-            amount: {$amount},
-            shipping_fee: {$shipping_fee},
-            currency: '{$currency}',
-            merchant_reference: '{$merchant_reference}',
-            first_name: '{$customer_first_name}',
-            last_name: '{$customer_last_name}',
-            email: '{$customer_email}',
-            meta_data: {
-                customer: '{$customer}',
-                email: '{$customer_email}',
-            },
-            items: [
-                {
-                    image_url:
-                        'https://s3.amazonaws.com/uifaces/faces/twitter/ladylexy/128.jpg',
-                    item_url: 'https://www.paypal.com/in/webapps/mpp/home',
-                    name: 'Awesome item',
-                    unit_price: 130000,
-                    quantity: 1,
-                }
-            ]
-        },
+        data: dataInfo,
         onSuccess: (data) => {
-            location.href = '{$redirect_url}?reference=' + data.reference;
-            console.log(data);
+            const trxReference = data.data.data.data.reference;
+            location.href = '{$redirect_url}?reference=' + trxReference;
         },
         onError: (data) => {
             console.log(data);
