@@ -99,7 +99,6 @@ class Klump extends PaymentModule
         return parent::install()
             && $this->registerHook('paymentOptions')
             && $this->registerHook('paymentReturn')
-            // && $this->registerHook('actionFrontControllerSetMedia')
             && $this->registerHook('moduleRoutes')
             && $this->installConfiguration();
     }
@@ -205,7 +204,6 @@ class Klump extends PaymentModule
         if ($cart->getOrderTotal() < 10000) {
             $newOption->setAdditionalInformation('<div class="alert alert-warning">Increase cart total value to at least <strong>N10,000</strong> in order to use Buy Now, Pay Later.</div>');
         } else {
-            // $newOption->setForm($this->generateForm());
             if ($gateway_chosen == 'klump') {
                 $newOption->setAdditionalInformation(
                     $this->generateForm()
@@ -274,29 +272,6 @@ class Klump extends PaymentModule
             $params
         );
         return $this->context->smarty->fetch('module:klump/views/templates/front/checkout.tpl');
-
-    }
-
-    /**
-     * Inject Klump JS
-     *
-     * @return void
-     */
-    public function hookActionFrontControllerSetMedia()
-    {
-        // Check if we're on the order page
-        if ($this->context->controller->php_self == 'order') {
-            $this->context->controller->registerJavascript(
-                'buynowpaylater-external',
-                'https://js.useklump.com/klump.js',
-                [
-                    'position' => 'head',
-                    'priority' => 100,
-                    'server' => 'remote',
-                    'attributes' => 'defer'
-                ]
-            );
-        }
     }
 
     /**

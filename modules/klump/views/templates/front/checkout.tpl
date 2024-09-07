@@ -59,9 +59,9 @@
         const klump = new Klump(payload);
     });
 
-    const simulatedDivClick = document.createEvent('MouseEvents');
+    const simulatedBtnClick = document.createEvent('MouseEvents');
 
-    simulatedDivClick.initEvent(
+    simulatedBtnClick.initEvent(
         'click', /* Event type */
         true, /* bubbles */
         true, /* cancelable */
@@ -81,7 +81,7 @@
 
     // Automatically click after 1 second
     setTimeout(function() {
-        klumpBtn.dispatchEvent(simulatedDivClick);
+        klumpBtn.dispatchEvent(simulatedBtnClick);
     }, 1000);
 </script>
 {/if}
