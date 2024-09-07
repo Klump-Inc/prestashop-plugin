@@ -34,6 +34,8 @@ class Klump extends PaymentModule
         ];
         $this->bootstrap = true;
 
+        $this->controllers = ['klump', 'validation'];
+
         parent::__construct();
 
         $this->displayName = $this->trans('Klump - Buy Now, Pay Later(BNPL)', [], 'Modules.Klump.Admin');
@@ -97,7 +99,7 @@ class Klump extends PaymentModule
         return parent::install()
             && $this->registerHook('paymentOptions')
             && $this->registerHook('paymentReturn')
-            && $this->registerHook('actionFrontControllerSetMedia')
+            // && $this->registerHook('actionFrontControllerSetMedia')
             && $this->registerHook('moduleRoutes')
             && $this->installConfiguration();
     }
@@ -166,6 +168,12 @@ class Klump extends PaymentModule
             return '';
         }
 
+        $gateway_chosen = 'none';
+
+        if (Tools::getValue('gateway') == 'klump') {
+            $gateway_chosen = 'klump';
+        }
+
         $newOption = new PaymentOption();
 
         // Set the label or name of the payment method
@@ -174,7 +182,8 @@ class Klump extends PaymentModule
         );
 
         // Set webhook link
-        $newOption->setAction($this->context->link->getModuleLink($this->name, 'klump'));
+        // $newOption->setAction($this->context->link->getModuleLink($this->name, 'klump'));
+        $newOption->setAction($this->context->link->getModuleLink($this->name, 'validation', [], true));
 
         // Set module name
         $newOption->setModuleName($this->name);
@@ -182,14 +191,26 @@ class Klump extends PaymentModule
         // Set the logo
         $newOption->setLogo(Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/logo.png'));
 
+        $newOption->setInputs([
+            'klump_iframe' => [
+                'name' =>'klump_iframe',
+                'type' =>'hidden',
+                'value' =>'1',
+            ]
+        ]);
+
         // BNPL should only come in when a user has cart size more than N10,000
         $cart = $this->context->cart;
-
 
         if ($cart->getOrderTotal() < 10000) {
             $newOption->setAdditionalInformation('<div class="alert alert-warning">Increase cart total value to at least <strong>N10,000</strong> in order to use Buy Now, Pay Later.</div>');
         } else {
-            $newOption->setForm($this->generateForm());
+            // $newOption->setForm($this->generateForm());
+            if ($gateway_chosen == 'klump') {
+                $newOption->setAdditionalInformation(
+                    $this->generateForm()
+                );
+            }
         }
 
         return [$newOption];
@@ -235,63 +256,25 @@ class Klump extends PaymentModule
 
         // Get customer information
         $customer = new Customer((int) $cart->id_customer);
-        $merchant_reference = 'order_' . $cart->id . '_' . time();
+        $params = [
+            'merchant_public_key' => $merchantPublickey,
+            'merchant_reference' => 'order_' . $cart->id . '_' . time(),
+            'amount' => $cart->getOrderTotal(),
+            'currency' => $this->default_currency,
+            'customer' => $first_name . ' ' . $last_name,
+            'customer_first_name' => $customer->firstname,
+            'customer_last_name' => $customer->lastname,
+            'customer_email' => $customer->email,
+            'items' => json_encode($products, JSON_PRETTY_PRINT),
+            'shipping_fee' => $cart->getOrderTotal(true, Cart::ONLY_SHIPPING),
+            'gateway_chosen' => 'klump',
+        ];
 
-        $this->context->smarty->assign([
-            'gateway_chosen' => $this->name,
-            'form_url'       => $this->context->link->getModuleLink($this->name, 'klump/webhook', [], true),
-        ]);
+        $this->context->smarty->assign(
+            $params
+        );
+        return $this->context->smarty->fetch('module:klump/views/templates/front/checkout.tpl');
 
-        // Generate checkout form/button
-        $form = '
-            <form>
-                <div id="klump__checkout"></div>
-            </form>
-            <script>
-                const payload = {
-                    publicKey: "' . $merchantPublickey . '",
-                    data: {
-                        amount: ' . $cart->getOrderTotal() . ',
-                        shipping_fee: ' . $cart->getOrderTotal(true, Cart::ONLY_SHIPPING) . ',
-                        currency: "' . $this->default_currency. '",
-                        redirect_url: "' .  Tools::getHttpHost(true).__PS_BASE_URI__ . "index.php?controller=order-confirmation&id_cart='.$cart->id.'&id_module='.$this->module->id.'&id_order='.$this->module->currentOrder.'&key='.$customer->secure_key.'" . '",
-                        merchant_reference: "' . $merchant_reference . '",
-                        first_name: "' . $customer->firstname . '",
-                        last_name: "' . $customer->lastname . '",
-                        email: "' . $customer->email . '",
-                        meta_data: {
-                            customer: "' . $customer->firstname . ' ' . $customer->lastname . '",
-                            email: "' . $customer->email . '",
-                        },
-                        items: ' . json_encode($products) . '
-                    },
-                    onSuccess: (data) => {
-                        console.log("html onError will be handled by the merchant");
-                        console.log(data);
-                    },
-                    onError: (data) => {
-                        console.log("html onError will be handled by the merchant");
-                        console.log(data);
-                    },
-                    onLoad: (data) => {
-                        console.log("html onLoad will be handled by the merchant");
-                        console.log(data);
-                    },
-                    onOpen: (data) => {
-                        console.log("html OnOpen will be handled by the merchant");
-                        console.log(data);
-                    },
-                    onClose: (data) => {
-                        console.log("html onClose will be handled by the merchant");
-                        location.reload();
-                    }
-                }
-                document.getElementById("klump__checkout").addEventListener("click", function () {
-                    const klump = new Klump(payload);
-                });
-            </script>
-        ';
-        return $form;
     }
 
     /**
