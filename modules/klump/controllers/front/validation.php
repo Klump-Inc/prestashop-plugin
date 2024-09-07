@@ -48,10 +48,10 @@ class KlumpValidationModuleFrontController extends ModuleFrontController
             die($this->module->getTranslator()->trans('This payment method is not available.', [], 'Modules.Klump.Shop'));
         }
 		
-		if ((int)Tools::getValue('klump_iframe') == 1) {
-			Tools::redirect('index.php?controller=order&step=3&gateway=klump');
-			exit;
-		}
+        if ((int)Tools::getValue('klump_iframe') == 1) {
+            Tools::redirect('index.php?controller=order&step=3&gateway=klump');
+            exit;
+        }
 
         /**
          * Load customer information
@@ -84,15 +84,15 @@ class KlumpValidationModuleFrontController extends ModuleFrontController
             ];
             
             $this->module->validateOrder(
-				(int)$cart->id,
-				Configuration::get('PS_OS_PAYMENT'),
-				$total,
-				$this->module->displayName,
-				'Klump Reference: '.$reference,
-				$extra_vars,
-				(int)$cart->id_currency,
-				false,
-				$customer->secure_key
+                (int)$cart->id,
+                Configuration::get('PS_OS_PAYMENT'),
+                $total,
+                $this->module->displayName,
+                'Klump Reference: '.$reference,
+                $extra_vars,
+                (int)$cart->id_currency,
+                false,
+                $customer->secure_key
             );
             Tools::redirect('index.php?controller=order-confirmation&id_cart='.$cart->id.'&id_module='.$this->module->id.'&id_order='.$this->module->currentOrder.'&key='.$customer->secure_key.'&reference='.$reference);
         }
