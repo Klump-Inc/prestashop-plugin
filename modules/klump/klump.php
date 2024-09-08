@@ -256,6 +256,7 @@ class Klump extends PaymentModule
         // Get customer information
         $customer = new Customer((int) $cart->id_customer);
         $id_address = Address::getFirstCustomerAddressId($customer->id);
+        $address = new Address($id_address);
 
         $params = [
             'merchant_public_key' => $merchantPublickey,
@@ -266,14 +267,14 @@ class Klump extends PaymentModule
             'customer_first_name' => $customer->firstname,
             'customer_last_name' => $customer->lastname,
             'customer_email' => $customer->email,
-            'items' => json_encode($products, JSON_PRETTY_PRINT),
+            'customer_address' => $address->address1 . ', ' . $address->city ,
+            'items' => json_encode($products),
             'shipping_fee' => $cart->getOrderTotal(true, Cart::ONLY_SHIPPING),
             'gateway_chosen' => 'klump',
             'redirect_url' => $this->context->link->getModuleLink($this->name, 'validation', [], true)
         ];
     
-        if ($id_address) {
-            $address = new Address($id_address);
+        if ($address->phone) {
             $phone = $address->phone;
             $params['customer_phone'] = $phone;
         }

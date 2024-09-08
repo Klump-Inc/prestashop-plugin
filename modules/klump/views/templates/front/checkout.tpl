@@ -7,6 +7,7 @@
 <div id='klump__checkout'></div>
 <script src="https://js.useklump.com/klump.js"></script>
 <script type="text/javascript">
+    const cartItems = {$items|unescape: "html" nofilter};
     const dataInfo = {
         amount: {$amount},
         shipping_fee: {$shipping_fee},
@@ -19,17 +20,10 @@
         meta_data: {
             customer: '{$customer}',
             email: '{$customer_email}',
+            source: 'PrestaShop Plugin',
+            customer_address: '{$customer_address}'
         },
-        items: [
-            {
-                image_url:
-                    'https://s3.amazonaws.com/uifaces/faces/twitter/ladylexy/128.jpg',
-                item_url: 'https://www.paypal.com/in/webapps/mpp/home',
-                name: 'Awesome item',
-                unit_price: 22000,
-                quantity: 1,
-            }
-        ]
+        items: cartItems
     };
     {if isset($customer_phone)}
         dataInfo.phone = '{$customer_phone}'
@@ -39,7 +33,11 @@
         data: dataInfo,
         onSuccess: (data) => {
             const trxReference = data.data.data.data.reference;
-            location.href = '{$redirect_url}?reference=' + trxReference;
+            const  { status } = data.data.data;
+            const { type } = data.data;
+            if (status === 'successful' && trxReference && type === 'SUCCESS') {
+                location.href = '{$redirect_url}?reference=' + trxReference;
+            }
         },
         onError: (data) => {
             console.log(data);
