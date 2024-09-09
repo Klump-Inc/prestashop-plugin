@@ -20,7 +20,8 @@
         meta_data: {
             customer: '{$customer}',
             email: '{$customer_email}',
-            source: 'PrestaShop Plugin',
+            klump_plugin_source: 'prestashop',
+            klump_plugin_version: '0.1.0',
             customer_address: '{$customer_address}'
         },
         items: cartItems
