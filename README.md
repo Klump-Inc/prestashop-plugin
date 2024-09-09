@@ -32,3 +32,8 @@ To test the plugin, please follow the instructions below:
 ![Configure Screen](./img/pay_with_klump.png)
 
 If you have any questions, please contact us at engineering@klump.com or Join on Slack Channel.
+
+### Contributing to the project
+To contribute, clone the project and branch off `release/develop` and create a new branch off of that. The project requires Docker and [Docker Compose](https://docker.com) to be installed.
+
+To run the project locally, simply run `make run_with_logs` from your terminal in the project directory.
