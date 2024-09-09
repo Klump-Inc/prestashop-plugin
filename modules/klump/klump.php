@@ -23,7 +23,7 @@ class Klump extends PaymentModule
     {
         $this->name = 'klump';
         $this->tab = 'payments_gateways';
-        $this->version = '1.0.0';
+        $this->version = '0.1.0';
         $this->author = 'Klump Inc.';
         $this->is_eu_compatible = 0;
         $this->need_instance = 0;
