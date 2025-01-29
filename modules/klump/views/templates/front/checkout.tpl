@@ -2,13 +2,14 @@
 * Klump
 *}
 {if isset($gateway_chosen) && $gateway_chosen == 'klump'}
-<form method="POST" id="klump_form" action="{$form_url}">
+<form method="POST" id="klump_form" action="{$redirect_url}">
     <input type="hidden" name="amount" value="{$amount}" />
     <input type="hidden" name="email" value="{$email}" />
 </form>
 <div id='klump__checkout'></div>
-<script src="https://js.useklump.com/klump.js"></script>
-{*<script src="/modules/klump/views/templates/front/klump.js"></script>*}
+{*<script src="https://js.useklump.com/klump.js"></script>*}
+{*<script src="https://staging-new-js.useklump.com/klump.js"></script>*}
+<script src="https://new-js.useklump.com/klump.js"></script>
 <script type="text/javascript">
     const cartItems = {$items|unescape: "html" nofilter};
     const dataInfo = {
@@ -19,7 +20,7 @@
         merchant_reference: '{$merchant_reference}',
         first_name: '{$customer_first_name}',
         last_name: '{$customer_last_name}',
-
+        redirect_url: '{$redirect_url}',
         email: '{$customer_email}',
         meta_data: {
             customer: '{$customer}',
@@ -40,9 +41,6 @@
             const trxReference = data.data.data.data.reference;
             const  { status } = data.data.data;
             const { type } = data.data;
-            {*//if (status === 'successful' && trxReference && type === 'SUCCESS') {*}
-            {*//    location.href = '{$redirect_url}?reference=' + trxReference;*}
-            {*//}*}
 
             // Get the form element by its ID
             const form = document.getElementById('klump_form');

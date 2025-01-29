@@ -5,9 +5,9 @@ class klumpklumpstatusModuleFrontController extends ModuleFrontController
     public function initContent()
     {
         $cart = $this->context->cart;
-        $reference = Tools::getValue('reference') ? Tools::getValue('reference') : $_POST['reference'];
+        $reference = Tools::getValue('reference');
 
-        if (!$this->module->active) {
+        if (!$reference || !$this->module->active) {
             Tools::redirect('index.php?controller=order');
         }
 

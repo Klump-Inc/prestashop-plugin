@@ -233,7 +233,7 @@ class Klump extends PaymentModule
             $this->context->smarty->assign(
                 array(
                     'gateway_chosen' => 'klump',
-                    'form_url'       => $this->context->link->getModuleLink($this->name, 'klump-status', [], true),
+                    'redirect_url'       => $this->context->link->getModuleLink($this->name, 'klump-status', [], true),
                 )
             );
 

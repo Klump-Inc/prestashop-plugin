@@ -22,7 +22,7 @@ class KlumpValidationModuleFrontController extends ModuleFrontController
         if (!$this->module->active) {
             Tools::redirect('index.php?controller=order');
         }
-        
+
         /**
          * Send back to beginning no delivery address
          * was entered and no active payment module was used.
