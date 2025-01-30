@@ -8,8 +8,8 @@
 </form>
 <div id='klump__checkout'></div>
 {*<script src="https://js.useklump.com/klump.js"></script>*}
-{*<script src="https://staging-new-js.useklump.com/klump.js"></script>*}
-<script src="https://new-js.useklump.com/klump.js"></script>
+<script src="https://staging-new-js.useklump.com/klump.js"></script>
+{*<script src="https://new-js.useklump.com/klump.js"></script>*}
 <script type="text/javascript">
     const cartItems = {$items|unescape: "html" nofilter};
     const dataInfo = {

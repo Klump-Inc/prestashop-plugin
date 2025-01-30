@@ -10,7 +10,7 @@ rebuild:
 	clear && docker compose down --remove-orphans  && docker compose rm && docker compose up --build -d --force-recreate && docker compose logs -f
 
 ssh_prestashop:
-	docker exec -it klump_prestashop bash /var/www/html/modules/klump
+	docker exec -it klump_prestashop bash
 
 #stop dashboard
 stop down:
