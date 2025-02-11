@@ -99,6 +99,10 @@ class Klump extends PaymentModule
      */
     public function install()
     {
+        if (!$this->registerHook('actionProductUpdate')) {
+            \PrestaShopLogger::addLog('Klump: Failed to register actionProductUpdate hook', 3); // Log level: ERROR
+        }
+
         return parent::install()
             && $this->registerHook('paymentOptions')
             && $this->registerHook('paymentReturn')
@@ -107,6 +111,8 @@ class Klump extends PaymentModule
             && $this->registerHook('actionOrderStatusPostUpdate') // Sync on order status updates
             && $this->registerHook('displayAdminProductsMainStepLeftColumnMiddle') // Add admin field to product page
             && $this->registerHook('actionAdminControllerSaveBefore') // Save custom admin settings
+            && $this->registerHook('actionProductSave')
+            && $this->registerHook('actionObjectProductUpdateAfter')
             && $this->installConfiguration();
     }
 
@@ -584,12 +590,42 @@ class Klump extends PaymentModule
 
     public function hookActionProductUpdate($params)
     {
+        \PrestaShopLogger::addLog('Hook triggered: actionProductUpdate for product ID: ' . $params['id_product']);
+        \PrestaShopLogger::addLog('Klump: Product update hook triggered for product ID: ' . $params['id_product'], 1);
+
         // Check if automatic sync is enabled
         if (!Configuration::get('KLUMP_ENABLE_SYNC')) {
+            \PrestaShopLogger::addLog('Klump: Product sync is disabled', 1);
             return;
         }
 
+        try {
+            KlumpProductSync::syncProductOnUpdate($params['id_product']);
+        } catch (\Exception $e) {
+            \PrestaShopLogger::addLog('Klump: Error syncing product: ' . $e->getMessage(), 3);
+        }
+
+        // KlumpProductSync::syncProductOnUpdate($params['id_product']);
+    }
+
+    public function hookActionProductSave($params)
+    {
+        \PrestaShopLogger::addLog('Klump: Product save hook triggered', 1);
+        if (!isset($params['id_product'])) {
+            \PrestaShopLogger::addLog('Klump: No product ID in params', 3);
+            return;
+        }
         KlumpProductSync::syncProductOnUpdate($params['id_product']);
+    }
+
+    public function hookActionObjectProductUpdateAfter($params)
+    {
+        \PrestaShopLogger::addLog('Klump: Product object update hook triggered', 1);
+        if (!isset($params['object']->id)) {
+            \PrestaShopLogger::addLog('Klump: No product object in params', 3);
+            return;
+        }
+        KlumpProductSync::syncProductOnUpdate($params['object']->id);
     }
 
     public function hookActionOrderStatusPostUpdate($params)
@@ -610,13 +646,85 @@ class Klump extends PaymentModule
         $query->from('product');
         $productIds = Db::getInstance()->executeS($query);
 
-        // Loop over each product and sync it using KlumpProductSync
-        foreach ($productIds as $product) {
-            $productId = (int)$product['id_product'];
-            KlumpProductSync::syncProductOnUpdate($productId);
+        $batchSize = 100; // Process 100 products at a time
+        $totalProducts = count($productIds);
+        $batches = array_chunk($productIds, $batchSize);
+
+        \PrestaShopLogger::addLog('Klump: Starting batch sync for ' . $totalProducts . ' products', 1);
+
+        foreach ($batches as $batchIndex => $batch) {
+            $allProductData = [];
+            $context = Context::getContext();
+
+            // Prepare data for current batch
+            foreach ($batch as $product) {
+                $productId = (int)$product['id_product'];
+                $product = new Product($productId);
+                $variants = $product->getAttributeCombinations($context->language->id);
+
+                // If no variants, add the product itself
+                if (empty($variants)) {
+                    $allProductData[] = [
+                        'name' => $product->name[$context->language->id],
+                        'product_id' => $product->id,
+                        'variant_id' => null,
+                        'variant_name' => null,
+                        'is_published' => (bool)$product->active,
+                        'price' => (float)$product->price,
+                        'old_price' => (float)(isset($product->base_price) ? $product->base_price : $product->price),
+                        'description' => $product->description[$context->language->id],
+                        'sku' => $product->reference,
+                        'image' => $context->link->getImageLink(
+                            $product->link_rewrite[$context->language->id],
+                            $product->getCover($product->id)['id_image'],
+                            'home_default'
+                        ),
+//                        'sub_category' => KlumpProductSync::getCategoryName($productId),
+//                        'category' => KlumpProductSync::getParentCategoryName($productId),
+                    ];
+                } else {
+                    // Add all variants
+                    foreach ($variants as $variant) {
+                        $allProductData[] = [
+                            'name' => $product->name[$context->language->id],
+                            'product_id' => $product->id,
+                            'variant_id' => $variant['id_product_attribute'],
+                            'variant_name' => $variant['attribute_name'],
+                            'is_published' => (bool)$product->active,
+                            'price' => (float)$variant['price'],
+                            'old_price' => null,
+                            'description' => $product->description[$context->language->id],
+                            'sku' => $variant['reference'] ?: $product->reference,
+                            'image' => $context->link->getImageLink(
+                                $product->link_rewrite[$context->language->id],
+                                $variant['id_image'] ?? $product->getCover($product->id)['id_image'],
+                                'home_default'
+                            ),
+//                            'sub_category' => KlumpProductSync::getCategoryName($productId),
+//                            'category' => KlumpProductSync::getParentCategoryName($productId),
+                        ];
+                    }
+                }
+            }
+
+            // Sync current batch
+            $sync = new KlumpProductSync();
+            $sync->syncProducts($allProductData);
+
+            \PrestaShopLogger::addLog(
+                sprintf(
+                    'Klump: Processed batch %d/%d with %d products/variants',
+                    $batchIndex + 1,
+                    ceil($totalProducts / $batchSize),
+                    count($allProductData)
+                ),
+                1
+            );
+
+            // Add a small delay between batches to prevent overwhelming the API
+            usleep(500000); // 0.5 second delay
         }
 
-        // Optionally log successful sync
-        \PrestaShopLogger::addLog('Klump: All products have been synced successfully.', 1); // Level: INFO
+        \PrestaShopLogger::addLog('Klump: Completed batch sync of all products', 1);
     }
 }

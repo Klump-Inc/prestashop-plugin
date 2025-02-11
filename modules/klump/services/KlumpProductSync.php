@@ -5,7 +5,8 @@ class KlumpProductSync
     /**
      * API URL to sync products
      */
-    private const SYNC_URL = 'https://example.com/api/products/sync';
+//    private const SYNC_URL = 'https://api.klump.com/products/sync';
+    private const SYNC_URL = 'https://rarely-in-sunbeam.ngrok-free.app/v1/products/sync';
 
     /**
      * Get the sub-category name of a product.
@@ -50,6 +51,7 @@ class KlumpProductSync
      */
     public static function syncProductOnUpdate($productId)
     {
+        \PrestaShopLogger::addLog('Klump: Starting sync for product ID: ' . $productId, 1);
         $product = new \Product($productId);
         $context = \Context::getContext();
         $variants = $product->getAttributeCombinations($context->language->id);
@@ -224,8 +226,8 @@ class KlumpProductSync
         }
 
         // Retrieve credentials from configuration
-        $secretKey = \Configuration::get('KLUMP_SECRET_KEY');
-        $publicKey = \Configuration::get('KLUMP_PUBLIC_KEY');
+        $secretKey = \Configuration::get('KLUMP_LIVE_SECRET_KEY');
+        $publicKey = \Configuration::get('KLUMP_LIVE_PUBLIC_KEY');
 
         if (empty($secretKey) || empty($publicKey)) {
             \PrestaShopLogger::addLog('Klump: Credentials for product sync not set', 3); // Log level: ERROR
