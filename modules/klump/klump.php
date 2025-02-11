@@ -13,6 +13,8 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+require_once _PS_MODULE_DIR_ . 'klump/services/KlumpProductSync.php';
+
 // https://devdocs.prestashop-project.org/8/modules/creation/tutorial/
 class Klump extends PaymentModule
 {
@@ -101,6 +103,8 @@ class Klump extends PaymentModule
             && $this->registerHook('paymentOptions')
             && $this->registerHook('paymentReturn')
             && $this->registerHook('moduleRoutes')
+            && $this->registerHook('actionUpdateQuantity')
+            && $this->registerHook('actionObjectProductUpdateAfter')
             && $this->installConfiguration();
     }
 
@@ -302,7 +306,7 @@ class Klump extends PaymentModule
      *
      * This is a backoffice operation
      *
-     * @return void
+     * @return string
      */
     public function getContent()
     {
@@ -323,6 +327,7 @@ class Klump extends PaymentModule
             $live_secret_key = Tools::getValue('KLUMP_LIVE_SECRET_KEY');
             $enable_test_mode = Tools::getValue('KLUMP_MODE') ? true : false;
             $disable_klump = Tools::getValue('KLUMP_DISABLE') ? false : true;
+            $isSyncEnabled = Tools::getValue('KLUMP_ENABLE_SYNC', false);
 
             // Initialize validation error array
             $errors = [];
@@ -347,6 +352,17 @@ class Klump extends PaymentModule
                 $errors[] = $this->trans('Live secret key is either empty or invalid. A valid live secret key should be of the format klp_sk_xxxxxxxxxxxxxxx');
             }
 
+            // Check if product sync is enabled but keys are missing
+            if ($isSyncEnabled) {
+                if ($enable_test_mode) {
+                    // Prevent enabling product sync in Test Mode
+                    $errors[] = $this->trans('Product sync is only available in Live Mode. Please disable Test Mode to enable product sync.');
+                } elseif (empty($live_public_key) || empty($live_secret_key)) {
+                    // Ensure Live Mode keys are provided
+                    $errors[] = $this->trans('You cannot enable product sync without valid Live Public and Secret Keys.');
+                }
+            }
+
             // if error exist, display them
             if (count($errors) > 0) {
                 $output .= $this->displayError(implode('<br>', $errors));
@@ -358,11 +374,29 @@ class Klump extends PaymentModule
                 Configuration::updateValue('KLUMP_LIVE_SECRET_KEY', $live_secret_key);
                 Configuration::updateValue('KLUMP_MODE', $enable_test_mode);
                 Configuration::updateValue('KLUMP_DISABLE', $disable_klump);
+                Configuration::updateValue('KLUMP_ENABLE_SYNC', $isSyncEnabled);
                 $output .= $this->displayConfirmation($this->trans('Settings updated successfully'));
             }
         }
 
-        return $output . $this->renderForm();
+        // Check if "Sync All Products" button is clicked
+        if (Tools::isSubmit('sync_all_products')) {
+            $this->syncAllProducts();
+            $output .= $this->displayConfirmation($this->trans('All products sync is initiated successfully.'));
+        }
+
+        // Determine if automatic product sync is enabled
+        $isSyncEnabled = KlumpProductSync::isSyncEnabled();
+
+        // Pass variables to the Smarty template
+        $this->context->smarty->assign([
+            'form_action' => AdminController::$currentIndex . '&configure=' . $this->name . '&token=' . Tools::getAdminTokenLite('AdminModules'),
+            'is_sync_enabled' => $isSyncEnabled, // Pass sync flag
+        ]);
+
+        return $output . $this->renderForm() . $this->context->smarty->fetch($this->local_path . 'views/templates/admin/config.tpl');
+
+//        return $output . $this->renderForm();
     }
 
     /**
@@ -409,31 +443,36 @@ class Klump extends PaymentModule
                                 'label' => $this->trans('Test')
                             ]
                         ]
-                    ],[
+                    ],
+                    [
                         'type' => 'text',
                         'label' => $this->trans('Test Public Key'),
                         'name' => 'KLUMP_TEST_PUBLIC_KEY',
                         'size' => 40,
                         'required' => true
-                    ],[
+                    ],
+                    [
                         'type' => 'text',
                         'label' => $this->trans('Test Secret Key'),
                         'name' => 'KLUMP_TEST_SECRET_KEY',
                         'size' => 40,
                         'required' => true
-                    ],[
+                    ],
+                    [
                         'type' => 'text',
                         'label' => $this->trans('Live Public Key'),
                         'name' => 'KLUMP_LIVE_PUBLIC_KEY',
                         'size' => 40,
                         'required' => true
-                    ],[
+                    ],
+                    [
                         'type' => 'text',
                         'label' => $this->trans('Live Secret Key'),
                         'name' => 'KLUMP_LIVE_SECRET_KEY',
                         'size' => 40,
                         'required' => true
-                    ],[
+                    ],
+                    [
                         'type' => 'switch',
                         'label' => $this->trans('Disable Klump on Cart Page'),
                         'name' => 'KLUMP_DISABLE',
@@ -451,7 +490,31 @@ class Klump extends PaymentModule
                                 'label' => $this->trans('Enable')
                             ]
                         ]
-                    ]
+                    ],
+                    [
+                        'type' => 'switch',
+                        'label' => $this->trans('Enable Automatic Product Sync', [], 'Modules.Klump.Admin'),
+                        'name' => 'KLUMP_ENABLE_SYNC', // Name of the configuration key
+                        'is_bool' => true,
+                        'required' => true,
+                        'desc' => $this->trans(
+                            'Enable this option to automatically sync products with the external API on update or purchase.',
+                            [],
+                            'Modules.Klump.Admin'
+                        ),
+                        'values' => [
+                            [
+                                'id' => 'active_on',
+                                'value' => true,
+                                'label' => $this->trans('Enable'),
+                            ],
+                            [
+                                'id' => 'active_off',
+                                'value' => false,
+                                'label' => $this->trans('Disable'),
+                            ],
+                        ],
+                    ],
                 ],
                 'submit' => [
                     'title' => $this->trans('Save'),
@@ -492,6 +555,7 @@ class Klump extends PaymentModule
             'KLUMP_LIVE_SECRET_KEY' => Tools::getValue('KLUMP_LIVE_SECRET_KEY', Configuration::get('KLUMP_LIVE_SECRET_KEY')),
             'KLUMP_MODE' => Tools::getValue('KLUMP_MODE', Configuration::get('KLUMP_MODE')),
             'KLUMP_DISABLE' => Tools::getValue('KLUMP_DISABLE', Configuration::get('KLUMP_DISABLE') ? false : true),
+            'KLUMP_ENABLE_SYNC' => Tools::getValue('KLUMP_ENABLE_SYNC', Configuration::get('KLUMP_ENABLE_SYNC')),
         );
     }
 
@@ -514,5 +578,137 @@ class Klump extends PaymentModule
                 ),
             ),
         );
+    }
+
+    public function hookActionObjectProductUpdateAfter($params)
+    {
+        static $syncTracker = [];
+
+        if (!isset($params['object']) || !$params['object'] instanceof Product) {
+            return;
+        }
+
+        $productId = (int) $params['object']->id;
+
+        // Skip if product was already synced during this request
+        if (isset($syncTracker[$productId])) {
+            return;
+        }
+
+        $syncTracker[$productId] = true;
+
+        KlumpProductSync::syncProductOnUpdate($productId);
+    }
+
+    public function hookActionUpdateQuantity($params)
+    {
+        static $lastSyncedStock = [];
+
+        // Check if the necessary parameters are provided
+        if (!isset($params['id_product']) || !isset($params['quantity'])) {
+            return;
+        }
+
+        $productId = (int) $params['id_product'];
+        $newStock = (int) $params['quantity'];
+
+        // Check if the stock has already been updated
+        if (isset($lastSyncedStock[$productId]) && $lastSyncedStock[$productId] === $newStock) {
+            return;
+        }
+
+        $lastSyncedStock[$productId] = $newStock; // Update tracker
+
+        KlumpProductSync::syncProductOnUpdate($productId);
+    }
+
+    public function syncAllProducts()
+    {
+        // Get all product IDs from the database
+        $query = new DbQuery();
+        $query->select('id_product');
+        $query->from('product');
+        $productIds = Db::getInstance()->executeS($query);
+
+        $batchSize = 100; // Process 100 products at a time
+        $totalProducts = count($productIds);
+        $batches = array_chunk($productIds, $batchSize);
+
+        \PrestaShopLogger::addLog('Klump: Starting batch sync for ' . $totalProducts . ' products', 1);
+
+        foreach ($batches as $batchIndex => $batch) {
+            $allProductData = [];
+            $context = Context::getContext();
+
+            // Prepare data for current batch
+            foreach ($batch as $product) {
+                $productId = (int)$product['id_product'];
+                $product = new Product($productId);
+                $variants = $product->getAttributeCombinations($context->language->id);
+
+                // If no variants, add the product itself
+                if (empty($variants)) {
+                    $allProductData[] = [
+                        'name' => $product->name[$context->language->id],
+                        'product_id' => $product->id,
+                        'variant_id' => null,
+                        'variant_name' => null,
+                        'is_published' => (bool)$product->active,
+                        'price' => (float)$product->price,
+                        'old_price' => (float)(isset($product->base_price) ? $product->base_price : $product->price),
+                        'description' => $product->description[$context->language->id],
+                        'sku' => $product->reference,
+                        'image' => $context->link->getImageLink(
+                            $product->link_rewrite[$context->language->id],
+                            $product->getCover($product->id)['id_image'],
+                            'home_default'
+                        ),
+//                        'sub_category' => KlumpProductSync::getCategoryName($productId),
+//                        'category' => KlumpProductSync::getParentCategoryName($productId),
+                    ];
+                } else {
+                    // Add all variants
+                    foreach ($variants as $variant) {
+                        $allProductData[] = [
+                            'name' => $product->name[$context->language->id],
+                            'product_id' => $product->id,
+                            'variant_id' => $variant['id_product_attribute'],
+                            'variant_name' => $variant['attribute_name'],
+                            'is_published' => (bool)$product->active,
+                            'price' => (float)$variant['price'],
+                            'old_price' => null,
+                            'description' => $product->description[$context->language->id],
+                            'sku' => $variant['reference'] ?: $product->reference,
+                            'image' => $context->link->getImageLink(
+                                $product->link_rewrite[$context->language->id],
+                                $variant['id_image'] ?? $product->getCover($product->id)['id_image'],
+                                'home_default'
+                            ),
+//                            'sub_category' => KlumpProductSync::getCategoryName($productId),
+//                            'category' => KlumpProductSync::getParentCategoryName($productId),
+                        ];
+                    }
+                }
+            }
+
+            // Sync current batch
+            $sync = new KlumpProductSync();
+            $sync->syncProducts($allProductData);
+
+            \PrestaShopLogger::addLog(
+                sprintf(
+                    'Klump: Processed batch %d/%d with %d products/variants',
+                    $batchIndex + 1,
+                    ceil($totalProducts / $batchSize),
+                    count($allProductData)
+                ),
+                1
+            );
+
+            // Add a small delay between batches to prevent overwhelming the API
+            usleep(500000); // 0.5 second delay
+        }
+
+        \PrestaShopLogger::addLog('Klump: Completed batch sync of all products', 1);
     }
 }
