@@ -99,21 +99,19 @@ class Klump extends PaymentModule
      */
     public function install()
     {
-        if (!$this->registerHook('actionProductUpdate')) {
-            \PrestaShopLogger::addLog('Klump: Failed to register actionProductUpdate hook', 3); // Log level: ERROR
-        }
-
         return parent::install()
             && $this->registerHook('paymentOptions')
             && $this->registerHook('paymentReturn')
             && $this->registerHook('moduleRoutes')
-            && $this->registerHook('actionProductUpdate') // Sync on product updates
-            && $this->registerHook('actionOrderStatusPostUpdate') // Sync on order status updates
-            && $this->registerHook('displayAdminProductsMainStepLeftColumnMiddle') // Add admin field to product page
-            && $this->registerHook('actionAdminControllerSaveBefore') // Save custom admin settings
-            && $this->registerHook('actionProductSave')
+            && $this->registerHook('actionUpdateQuantity')
             && $this->registerHook('actionObjectProductUpdateAfter')
             && $this->installConfiguration();
+//            && $this->registerHook('actionProductUpdate') // Sync on product updates
+//            && $this->registerHook('actionOrderStatusPostUpdate') // Sync on order status updates
+//            && $this->registerHook('displayAdminProductsMainStepLeftColumnMiddle') // Add admin field to product page
+//            && $this->registerHook('actionAdminControllerSaveBefore') // Save custom admin settings
+//            && $this->registerHook('actionProductSave')
+
     }
 
     /**
@@ -588,54 +586,23 @@ class Klump extends PaymentModule
         );
     }
 
-    public function hookActionProductUpdate($params)
-    {
-        \PrestaShopLogger::addLog('Hook triggered: actionProductUpdate for product ID: ' . $params['id_product']);
-        \PrestaShopLogger::addLog('Klump: Product update hook triggered for product ID: ' . $params['id_product'], 1);
-
-        // Check if automatic sync is enabled
-        if (!Configuration::get('KLUMP_ENABLE_SYNC')) {
-            \PrestaShopLogger::addLog('Klump: Product sync is disabled', 1);
-            return;
-        }
-
-        try {
-            KlumpProductSync::syncProductOnUpdate($params['id_product']);
-        } catch (\Exception $e) {
-            \PrestaShopLogger::addLog('Klump: Error syncing product: ' . $e->getMessage(), 3);
-        }
-
-        // KlumpProductSync::syncProductOnUpdate($params['id_product']);
-    }
-
-    public function hookActionProductSave($params)
-    {
-        \PrestaShopLogger::addLog('Klump: Product save hook triggered', 1);
-        if (!isset($params['id_product'])) {
-            \PrestaShopLogger::addLog('Klump: No product ID in params', 3);
-            return;
-        }
-        KlumpProductSync::syncProductOnUpdate($params['id_product']);
-    }
-
     public function hookActionObjectProductUpdateAfter($params)
     {
-        \PrestaShopLogger::addLog('Klump: Product object update hook triggered', 1);
-        if (!isset($params['object']->id)) {
-            \PrestaShopLogger::addLog('Klump: No product object in params', 3);
+        if (!isset($params['object']) || !$params['object'] instanceof Product) {
             return;
         }
-        KlumpProductSync::syncProductOnUpdate($params['object']->id);
+
+        KlumpProductSync::syncProductOnUpdate((int)$params['object']->id);
     }
 
-    public function hookActionOrderStatusPostUpdate($params)
+    public function hookActionUpdateQuantity($params)
     {
-        // Check if automatic sync is enabled
-        if (!Configuration::get('KLUMP_ENABLE_SYNC')) {
+        // Check if the necessary parameters are provided
+        if (!isset($params['id_product'])) {
             return;
         }
 
-        KlumpProductSync::syncProductsOnOrderStatusUpdate($params['id_order']);
+        KlumpProductSync::syncProductOnUpdate((int)$params['id_product']);
     }
 
     public function syncAllProducts()

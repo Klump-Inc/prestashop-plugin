@@ -52,8 +52,10 @@ class KlumpProductSync
     public static function syncProductOnUpdate($productId)
     {
         \PrestaShopLogger::addLog('Klump: Starting sync for product ID: ' . $productId, 1);
+
         $product = new \Product($productId);
         $context = \Context::getContext();
+
         $variants = $product->getAttributeCombinations($context->language->id);
 
         $productData = [];
@@ -180,40 +182,6 @@ class KlumpProductSync
     }
 
     /**
-     * Displays checkbox for "Enable Sync on Update" in the admin product page.
-     *
-     * @param array $params
-     * @return string
-     */
-    public function hookDisplayAdminProductsMainStepLeftColumnMiddle($params)
-    {
-        // Get the product ID
-        $idProduct = (int)Tools::getValue('id_product');
-
-        // Generate HTML for checkbox using KlumpProductSync
-        return KlumpProductSync::getSyncCheckboxHtml($idProduct, $this->context);
-    }
-
-    /**
-     * Saves the "Enable Sync on Update" option when admin updates a product.
-     *
-     * @param array $params
-     */
-    public function hookActionAdminControllerSaveBefore($params)
-    {
-        // Only act on product updates
-        if (Tools::getValue('id_product')) {
-            $idProduct = (int)Tools::getValue('id_product');
-
-            // Get all form data (including checkbox value)
-            $formData = Tools::getAllValues();
-
-            // Save the setting using KlumpProductSync
-            KlumpProductSync::saveProductSyncSetting($idProduct, $formData);
-        }
-    }
-
-    /**
      * Sync products to the external API.
      *
      * @param array $productData Array of products to sync
@@ -240,7 +208,6 @@ class KlumpProductSync
 
             // Initialize cURL for API request
             $curl = curl_init(self::SYNC_URL);
-
             curl_setopt($curl, CURLOPT_POST, true);
             curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($productData)); // Send JSON payload
             curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
