@@ -106,12 +106,6 @@ class Klump extends PaymentModule
             && $this->registerHook('actionUpdateQuantity')
             && $this->registerHook('actionObjectProductUpdateAfter')
             && $this->installConfiguration();
-//            && $this->registerHook('actionProductUpdate') // Sync on product updates
-//            && $this->registerHook('actionOrderStatusPostUpdate') // Sync on order status updates
-//            && $this->registerHook('displayAdminProductsMainStepLeftColumnMiddle') // Add admin field to product page
-//            && $this->registerHook('actionAdminControllerSaveBefore') // Save custom admin settings
-//            && $this->registerHook('actionProductSave')
-
     }
 
     /**
@@ -392,7 +386,7 @@ class Klump extends PaymentModule
         }
 
         // Determine if automatic product sync is enabled
-        $isSyncEnabled = (bool) Configuration::get('KLUMP_ENABLE_SYNC');
+        $isSyncEnabled = KlumpProductSync::isSyncEnabled();
 
         // Pass variables to the Smarty template
         $this->context->smarty->assign([
@@ -588,21 +582,44 @@ class Klump extends PaymentModule
 
     public function hookActionObjectProductUpdateAfter($params)
     {
+        static $syncTracker = [];
+
         if (!isset($params['object']) || !$params['object'] instanceof Product) {
             return;
         }
 
-        KlumpProductSync::syncProductOnUpdate((int)$params['object']->id);
+        $productId = (int) $params['object']->id;
+
+        // Skip if product was already synced during this request
+        if (isset($syncTracker[$productId])) {
+            return;
+        }
+
+        $syncTracker[$productId] = true;
+
+        KlumpProductSync::syncProductOnUpdate($productId);
     }
 
     public function hookActionUpdateQuantity($params)
     {
+        static $lastSyncedStock = [];
+
         // Check if the necessary parameters are provided
-        if (!isset($params['id_product'])) {
+        if (!isset($params['id_product']) || !isset($params['quantity'])) {
             return;
         }
 
-        KlumpProductSync::syncProductOnUpdate((int)$params['id_product']);
+        $productId = (int) $params['id_product'];
+        $newStock = (int) $params['quantity'];
+
+        // Check if the stock has already been updated
+        if (isset($lastSyncedStock[$productId]) && $lastSyncedStock[$productId] === $newStock) {
+            return;
+        }
+
+        $lastSyncedStock[$productId] = $newStock; // Update tracker
+
+        KlumpProductSync::syncProductOnUpdate($productId);
     }
 
     public function syncAllProducts()

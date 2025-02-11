@@ -5,8 +5,7 @@ class KlumpProductSync
     /**
      * API URL to sync products
      */
-//    private const SYNC_URL = 'https://api.klump.com/products/sync';
-    private const SYNC_URL = 'https://rarely-in-sunbeam.ngrok-free.app/v1/products/sync';
+    private const SYNC_URL = 'https://api.klump.com/products/sync';
 
     /**
      * Get the sub-category name of a product.
@@ -188,8 +187,9 @@ class KlumpProductSync
      */
     public function syncProducts(array $productData): void
     {
+        \PrestaShopLogger::addLog(json_encode($productData), 2);
         // Check if syncing is enabled
-        if (!$this->isSyncEnabled()) {
+        if (!self::isSyncEnabled()) {
             return;
         }
 
@@ -240,8 +240,8 @@ class KlumpProductSync
      *
      * @return bool
      */
-    private function isSyncEnabled(): bool
+    public static function isSyncEnabled(): bool
     {
-        return (bool)\Configuration::get('KLUMP_ENABLE_SYNC');
+        return (bool) \Configuration::get('KLUMP_ENABLE_SYNC') && \Configuration::get('KLUMP_LIVE_PUBLIC_KEY') && \Configuration::get('KLUMP_LIVE_SECRET_KEY');
     }
 }
