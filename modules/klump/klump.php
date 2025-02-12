@@ -212,38 +212,29 @@ class Klump extends PaymentModule
             $id_address = Address::getFirstCustomerAddressId($customer->id);
             $address = new Address($id_address);
 
-            $params = [
+            $templateVars = [
+                'gateway_chosen' => 'klump',
+                'redirect_url' => $this->context->link->getModuleLink($this->name, 'klump-status', [], true),
                 'merchant_public_key' => $merchantPublickey,
                 'merchant_reference' => 'order_' . $cart->id . '_' . time(),
                 'amount' => $cart->getOrderTotal(true, Cart::BOTH),
                 'currency' => $this->default_currency,
-                'customer' =>$customer->firstname . ' ' . $customer->lastname,
+                'customer' => $customer->firstname . ' ' . $customer->lastname,
                 'customer_first_name' => $customer->firstname,
                 'customer_last_name' => $customer->lastname,
                 'customer_email' => $customer->email,
-                'customer_address' => $address->address1 . ', ' . $address->city ,
+                'customer_address' => $address->address1 . ', ' . $address->city,
                 'items' => json_encode($products),
                 'shipping_fee' => $cart->getOrderTotal(true, Cart::ONLY_SHIPPING),
                 'tax' => $cart->getOrderTotal(true, Cart::BOTH) - $cart->getOrderTotal(false, Cart::BOTH),
-                'gateway_chosen' => 'klump',
-                'redirect_url' => $this->context->link->getModuleLink($this->name, 'validation', [], true)
             ];
 
+            // Add phone if available
             if ($address->phone) {
-                $phone = $address->phone;
-                $params['customer_phone'] = $phone;
+                $templateVars['customer_phone'] = $address->phone;
             }
 
-            $this->context->smarty->assign(
-                array(
-                    'gateway_chosen' => 'klump',
-                    'redirect_url'       => $this->context->link->getModuleLink($this->name, 'klump-status', [], true),
-                )
-            );
-
-            $this->context->smarty->assign(
-                $params
-            );
+            $this->context->smarty->assign($templateVars);
         }
 
         $newOption = new PaymentOption();
@@ -522,7 +513,6 @@ class Klump extends PaymentModule
                 ]
             ]
         ];
-        $fields_form_customization = [];
 
         $helper = new HelperForm();
 
@@ -543,7 +533,7 @@ class Klump extends PaymentModule
             'id_language' => $this->context->language->id
         );
 
-        return $helper->generateForm([$fields_form, $fields_form_customization]);
+        return $helper->generateForm([$fields_form]);
     }
 
     public function getConfigFieldsValues()
@@ -576,6 +566,15 @@ class Klump extends PaymentModule
                     'fc' => 'module',
                     'module' => $this->name,
                 ),
+            ),
+            'module-klump-status' => array(
+                'controller' => 'klumpstatus',
+                'rule' => 'module/klump/klump-status',
+                'keywords' => array(),
+                'params' => array(
+                    'fc' => 'module',
+                    'module' => 'klump',
+                )
             ),
         );
     }

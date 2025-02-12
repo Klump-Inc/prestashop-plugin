@@ -1,10 +1,14 @@
 {*
 * Klump
 *}
-{if isset($gateway_chosen) && $gateway_chosen == 'klump'}
+{if isset($gateway_chosen) && $gateway_chosen == 'klump' && isset($merchant_public_key)}
 <form method="POST" id="klump_form" action="{$redirect_url}">
-    <input type="hidden" name="amount" value="{$amount}" />
-    <input type="hidden" name="email" value="{$email}" />
+    {if isset($amount)}
+        <input type="hidden" name="amount" value="{$amount|escape:'htmlall':'UTF-8'}" />
+    {/if}
+    {if isset($email)}
+        <input type="hidden" name="email" value="{$email|escape:'htmlall':'UTF-8'}" />
+    {/if}
 </form>
 <div id='klump__checkout'></div>
 <script src="https://js.useklump.com/klump.js"></script>
@@ -18,7 +22,7 @@
         merchant_reference: '{$merchant_reference}',
         first_name: '{$customer_first_name}',
         last_name: '{$customer_last_name}',
-        redirect_url: '{$redirect_url}',
+        redirect_url: '{$redirect_url|escape:"javascript":"UTF-8"}',
         email: '{$customer_email}',
         meta_data: {
             customer: '{$customer}',

@@ -19,13 +19,12 @@ services:
         image: prestashop/prestashop:latest # Latest stable version of the PrestaShop, to see all available images go to ...
         restart: unless-stopped
         platform: linux/x86_64
+        command: >
+            bash -c "apt-get update && apt-get install -y nano && apache2-foreground"
         volumes:
             - type: bind
               source: ./modules/klump # local path to the module
               target: /var/www/html/modules/klump # path to be mounted in the container
-            #- type: bind
-            #  source: ./themes/myTheme # local path to the theme
-            #  target:  /var/www/html/themes/myTheme # path to be mounted in the container
             - psdata:/var/www/html
         depends_on:
             - klump_mysql
