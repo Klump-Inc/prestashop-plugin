@@ -1,6 +1,6 @@
 <?php
 
-class klumpklumpstatusModuleFrontController extends ModuleFrontController
+class KlumpKlumpStatusModuleFrontController extends ModuleFrontController
 {
     public function initContent()
     {
@@ -86,7 +86,6 @@ class klumpklumpstatusModuleFrontController extends ModuleFrontController
         $merchantSecretkey = Configuration::get('KLUMP_MODE')
             ? Configuration::get('KLUMP_TEST_SECRET_KEY')
             : Configuration::get('KLUMP_LIVE_SECRET_KEY');
-
 
         $options = [
             'http' => [
