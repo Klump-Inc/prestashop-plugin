@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<module>
+    <name>klump</name>
+    <displayName><![CDATA[Klump - Buy Now, Pay Later(BNPL)]]></displayName>
+    <version><![CDATA[0.1.1]]></version>
+    <description><![CDATA[Klump is a Nigerian Buy Now, Pay Later company. With Klump, you get the ability to split your payment into instalments.]]></description>
+    <author><![CDATA[Klump Inc.]]></author>
+    <tab><![CDATA[payments_gateways]]></tab>
+	<confirmUninstall><![CDATA[Are you sure you want to uninstall Klump - Buy Now, Pay Later(BNPL)?]]></confirmUninstall>
+    <is_configurable>1</is_configurable>
+    <need_instance>0</need_instance>
+</module>

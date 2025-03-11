@@ -1,12 +1,13 @@
 <?php
 /**
  * Copyyright since 2024 Klump Inc. and Contributors
- * 
+ *
  * Klump is a Nigerian Buy Now Pay Later company
  * @author Klump Inc <engineering@useklump.com>
  * @copyright 2024 Klump Inc. and Contributors
  * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
  */
+
 use PrestaShop\PrestaShop\Core\Payment\PaymentOption;
 
 if (!defined('_PS_VERSION_')) {
@@ -23,18 +24,18 @@ class Klump extends PaymentModule
      */
     public function __construct()
     {
-        $this->name = 'klump';
-        $this->tab = 'payments_gateways';
-        $this->version = '0.1.0';
-        $this->author = 'Klump Inc.';
+        $this->name             = 'klump';
+        $this->tab              = 'payments_gateways';
+        $this->version          = '0.1.1';
+        $this->author           = 'Klump Inc.';
         $this->is_eu_compatible = 0;
         // If your module needs to display a warning message in the “Modules” page, then you must set this attribute to 1.
-        $this->need_instance = 0;
+        $this->need_instance          = 0;
         $this->ps_versions_compliancy = [
             'min' => '1.7',
-            'max' => _PS_VERSION_
+            'max' => _PS_VERSION_,
         ];
-        $this->bootstrap = true;
+        $this->bootstrap              = true;
 
         $this->controllers = ['payment', 'validation'];
 
@@ -59,15 +60,15 @@ class Klump extends PaymentModule
         if (!$id_default_currency = Configuration::get('PS_CURRENCY_DEFAULT')) {
             $this->warning = $this->trans('Default currency not provided.', [], 'Modules.Mymodule.Admin');
         }
-        $default_currency = new Currency($id_default_currency);
+        $default_currency       = new Currency($id_default_currency);
         $this->default_currency = $default_currency->iso_code; // e.g., USD, EUR
 
         if ($this->default_currency !== 'NGN') {
-            $this->warning = $this.trans(
-                'Please set your default currency to Nigerian Naira(NGN) before you can configure Klump\'s Buy Now, Pay Later module',
-                [],
-                'Modules.Klump.Admin'
-            );
+            $this->warning = $this . trans(
+                    'Please set your default currency to Nigerian Naira(NGN) before you can configure Klump\'s Buy Now, Pay Later module',
+                    [],
+                    'Modules.Klump.Admin'
+                );
         }
 
         // Is this plugin active
@@ -75,13 +76,13 @@ class Klump extends PaymentModule
 
         // Set basic configuration options
         $this->config_keys = [
-            'KLUMP_NAME' => 'Klump',
+            'KLUMP_NAME'            => 'Klump',
             'KLUMP_TEST_PUBLIC_KEY' => '',
             'KLUMP_TEST_SECRET_KEY' => '',
             'KLUMP_LIVE_PUBLIC_KEY' => '',
             'KLUMP_LIVE_SECRET_KEY' => '',
-            'KLUMP_MODE' => '',
-            'KLUMP_DISABLE' => ''
+            'KLUMP_MODE'            => '',
+            'KLUMP_DISABLE'         => '',
         ];
 
         if (!Configuration::get('KLUMP_NAME')) {
@@ -90,6 +91,20 @@ class Klump extends PaymentModule
 
         // Set logo
         $this->logo = 'modules/' . $this->name . '/logo.png';
+    }
+
+    public function hookDisplayHeader()
+    {
+        // Register Klump JS SDK
+        $this->context->controller->registerJavascript(
+            'klump-sdk',
+            'https://js.useklump.com/klump.js',
+            [
+                'server'   => 'remote',
+                'position' => 'bottom',
+                'priority' => 20,
+            ]
+        );
     }
 
     /**
@@ -105,6 +120,8 @@ class Klump extends PaymentModule
             && $this->registerHook('moduleRoutes')
             && $this->registerHook('actionUpdateQuantity')
             && $this->registerHook('actionObjectProductUpdateAfter')
+            && $this->registerHook('displayProductAdditionalInfo')
+            && $this->registerHook('displayHeader')
             && $this->installConfiguration();
     }
 
@@ -173,7 +190,7 @@ class Klump extends PaymentModule
          * else don't render checkout form
          */
         $currency = $this->context->currency->iso_code;
-        $country = $this->context->country->iso_code;
+        $country  = $this->context->country->iso_code;
         if ($currency !== 'NGN' || $country !== 'NG') {
             return;
         }
@@ -190,7 +207,7 @@ class Klump extends PaymentModule
         }
 
         $gateway_chosen = 'none';
-        $cart = $this->context->cart;
+        $cart           = $this->context->cart;
 
         if (Tools::getValue('gateway') == 'klump') {
             $gateway_chosen = 'klump';
@@ -199,34 +216,34 @@ class Klump extends PaymentModule
             $products = [];
             foreach ($cart->getProducts() as $product) {
                 $products[] = [
-                    'image_url' => $this->context->link->getImageLink($product['link_rewrite'], $product['id_image']),
-                    'item_url' => $this->context->link->getProductLink($product['id_product']),
-                    'name' => $product['name'],
+                    'image_url'  => $this->context->link->getImageLink($product['link_rewrite'], $product['id_image']),
+                    'item_url'   => $this->context->link->getProductLink($product['id_product']),
+                    'name'       => $product['name'],
                     'unit_price' => $product['price'],
-                    'quantity' => (int) $product['quantity'],
+                    'quantity'   => (int)$product['quantity'],
                 ];
             }
 
             // Get customer information
-            $customer = new Customer((int) $cart->id_customer);
+            $customer   = new Customer((int)$cart->id_customer);
             $id_address = Address::getFirstCustomerAddressId($customer->id);
-            $address = new Address($id_address);
+            $address    = new Address($id_address);
 
             $templateVars = [
-                'gateway_chosen' => 'klump',
-                'redirect_url' => $this->context->link->getModuleLink($this->name, 'klump-status', [], true),
+                'gateway_chosen'      => 'klump',
+                'redirect_url'        => $this->context->link->getModuleLink($this->name, 'klump-status', [], true),
                 'merchant_public_key' => $merchantPublickey,
-                'merchant_reference' => 'order_' . $cart->id . '_' . time(),
-                'amount' => $cart->getOrderTotal(true, Cart::BOTH),
-                'currency' => $this->default_currency,
-                'customer' => $customer->firstname . ' ' . $customer->lastname,
+                'merchant_reference'  => 'order_' . $cart->id . '_' . time(),
+                'amount'              => $cart->getOrderTotal(true, Cart::BOTH),
+                'currency'            => $this->default_currency,
+                'customer'            => $customer->firstname . ' ' . $customer->lastname,
                 'customer_first_name' => $customer->firstname,
-                'customer_last_name' => $customer->lastname,
-                'customer_email' => $customer->email,
-                'customer_address' => $address->address1 . ', ' . $address->city,
-                'items' => json_encode($products),
-                'shipping_fee' => $cart->getOrderTotal(true, Cart::ONLY_SHIPPING),
-                'tax' => $cart->getOrderTotal(true, Cart::BOTH) - $cart->getOrderTotal(false, Cart::BOTH),
+                'customer_last_name'  => $customer->lastname,
+                'customer_email'      => $customer->email,
+                'customer_address'    => $address->address1 . ', ' . $address->city,
+                'items'               => json_encode($products),
+                'shipping_fee'        => $cart->getOrderTotal(true, Cart::ONLY_SHIPPING),
+                'tax'                 => $cart->getOrderTotal(true, Cart::BOTH) - $cart->getOrderTotal(false, Cart::BOTH),
             ];
 
             // Add phone if available
@@ -240,16 +257,16 @@ class Klump extends PaymentModule
         $newOption = new PaymentOption();
 
         $newOption->setModuleName($this->name) // Set module name
-            ->setCallToActionText($this->trans('Pay with Klump Buy Now, Pay Later ', [], 'Modules.Klump.Shop')) // Set the label or name of the payment method
-            ->setAction($this->context->link->getModuleLink($this->name, 'checkout', [], true))
+        ->setCallToActionText($this->trans('Pay with Klump Buy Now, Pay Later ', [], 'Modules.Klump.Shop')) // Set the label or name of the payment method
+        ->setAction($this->context->link->getModuleLink($this->name, 'checkout', [], true))
             ->setAdditionalInformation($this->context->smarty->fetch('module:klump/views/templates/hook/intro.tpl'))
             ->setLogo(Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/logo.png')) // Set the logo
             ->setInputs([
                 'klump_iframe' => [
-                    'name' =>'klump_iframe',
-                    'type' =>'hidden',
-                    'value' =>'1',
-                ]
+                    'name'  => 'klump_iframe',
+                    'type'  => 'hidden',
+                    'value' => '1',
+                ],
             ]);
 
         /**
@@ -268,7 +285,7 @@ class Klump extends PaymentModule
             }
         }
 
-        return [ $newOption ];
+        return [$newOption];
     }
 
     /**
@@ -286,7 +303,7 @@ class Klump extends PaymentModule
         if (isset($params['objOrder']) && $params['objOrder']->module == $this->name) {
             $this->context->smarty->assign([
                 'reference' => $params['objOrder']->reference,
-                'status' => 'waiting for BNPL payment approval',
+                'status'    => 'waiting for BNPL payment approval',
             ]);
             return $this->fetch('module:klump/views/templates/hook/payment_return.tpl');
         }
@@ -312,13 +329,13 @@ class Klump extends PaymentModule
         // Check if form is submitted
         if (Tools::isSubmit('submitKlumpBNPL')) {
             // Get submitted values
-            $test_public_key = Tools::getValue('KLUMP_TEST_PUBLIC_KEY');
-            $test_secret_key = Tools::getValue('KLUMP_TEST_SECRET_KEY');
-            $live_public_key = Tools::getValue('KLUMP_LIVE_PUBLIC_KEY');
-            $live_secret_key = Tools::getValue('KLUMP_LIVE_SECRET_KEY');
+            $test_public_key  = Tools::getValue('KLUMP_TEST_PUBLIC_KEY');
+            $test_secret_key  = Tools::getValue('KLUMP_TEST_SECRET_KEY');
+            $live_public_key  = Tools::getValue('KLUMP_LIVE_PUBLIC_KEY');
+            $live_secret_key  = Tools::getValue('KLUMP_LIVE_SECRET_KEY');
             $enable_test_mode = Tools::getValue('KLUMP_MODE') ? true : false;
-            $disable_klump = Tools::getValue('KLUMP_DISABLE') ? false : true;
-            $isSyncEnabled = Tools::getValue('KLUMP_ENABLE_SYNC', false);
+            $disable_klump    = Tools::getValue('KLUMP_DISABLE') ? false : true;
+            $isSyncEnabled    = Tools::getValue('KLUMP_ENABLE_SYNC', false);
 
             // Initialize validation error array
             $errors = [];
@@ -381,7 +398,7 @@ class Klump extends PaymentModule
 
         // Pass variables to the Smarty template
         $this->context->smarty->assign([
-            'form_action' => AdminController::$currentIndex . '&configure=' . $this->name . '&token=' . Tools::getAdminTokenLite('AdminModules'),
+            'form_action'     => AdminController::$currentIndex . '&configure=' . $this->name . '&token=' . Tools::getAdminTokenLite('AdminModules'),
             'is_sync_enabled' => $isSyncEnabled, // Pass sync flag
         ]);
 
@@ -392,7 +409,7 @@ class Klump extends PaymentModule
 
     /**
      * This form is used at the Configuration page
-     * for the module. It will collect things like 
+     * for the module. It will collect things like
      * API keys, etc.
      *
      * This is a backoffice operation
@@ -402,151 +419,151 @@ class Klump extends PaymentModule
     public function renderForm()
     {
         $id_default_currency = Configuration::get('PS_CURRENCY_DEFAULT');
-        $defaultCurrency = new Currency($id_default_currency);
-        $currency = $defaultCurrency->iso_code; // e.g., NGN, USD, EUR
+        $defaultCurrency     = new Currency($id_default_currency);
+        $currency            = $defaultCurrency->iso_code; // e.g., NGN, USD, EUR
 
         if ($currency !== 'NGN') {
             return '<div class="alert alert-warning">Please set your default currency to Nigerian Naira(NGN) before you can configure Klump\'s Buy Now, Pay Later</div>';
         }
         $fields_form = [
             'form' => [
-                'legend' => [
+                'legend'      => [
                     'title' => $this->trans('Settings'),
-                    'icon' => 'icon-cogs'
+                    'icon'  => 'icon-cogs',
                 ],
                 'description' => 'Fill out the form below to activate Klump\'s BNPL. You can get the values for the form below by checking your <a href="https://merchant.useklump.com/settings">merchant dashboard</a>',
-                'input' => [
+                'input'       => [
                     [
-                        'type' => 'switch',
-                        'label' => $this->trans('Mode'),
-                        'name' => 'KLUMP_MODE',
-                        'is_bool' => true,
+                        'type'     => 'switch',
+                        'label'    => $this->trans('Mode'),
+                        'name'     => 'KLUMP_MODE',
+                        'is_bool'  => true,
                         'required' => true,
-                        'desc' => 'Set your integration to either Test or Live. This will allow you to test your Klump BNPL integration without any real payments. Use this during development and testing. Uncheck this box when you are ready to go to production/live',
-                        'values' => [
+                        'desc'     => 'Set your integration to either Test or Live. This will allow you to test your Klump BNPL integration without any real payments. Use this during development and testing. Uncheck this box when you are ready to go to production/live',
+                        'values'   => [
                             [
-                                'id' => 'active_on',
+                                'id'    => 'active_on',
                                 'value' => false,
-                                'label' => $this->trans('Live')
-                            ],[
-                                'id' => 'active_off',
+                                'label' => $this->trans('Live'),
+                            ], [
+                                'id'    => 'active_off',
                                 'value' => true,
-                                'label' => $this->trans('Test')
-                            ]
-                        ]
+                                'label' => $this->trans('Test'),
+                            ],
+                        ],
                     ],
                     [
-                        'type' => 'text',
-                        'label' => $this->trans('Test Public Key'),
-                        'name' => 'KLUMP_TEST_PUBLIC_KEY',
-                        'size' => 40,
-                        'required' => true
-                    ],
-                    [
-                        'type' => 'text',
-                        'label' => $this->trans('Test Secret Key'),
-                        'name' => 'KLUMP_TEST_SECRET_KEY',
-                        'size' => 40,
-                        'required' => true
-                    ],
-                    [
-                        'type' => 'text',
-                        'label' => $this->trans('Live Public Key'),
-                        'name' => 'KLUMP_LIVE_PUBLIC_KEY',
-                        'size' => 40,
-                        'required' => true
-                    ],
-                    [
-                        'type' => 'text',
-                        'label' => $this->trans('Live Secret Key'),
-                        'name' => 'KLUMP_LIVE_SECRET_KEY',
-                        'size' => 40,
-                        'required' => true
-                    ],
-                    [
-                        'type' => 'switch',
-                        'label' => $this->trans('Disable Klump on Cart Page'),
-                        'name' => 'KLUMP_DISABLE',
-                        'is_bool' => true,
+                        'type'     => 'text',
+                        'label'    => $this->trans('Test Public Key'),
+                        'name'     => 'KLUMP_TEST_PUBLIC_KEY',
+                        'size'     => 40,
                         'required' => true,
-                        'desc' => 'This will remove Klump Buy Now, Pay Later from your checkout page.',
-                        'values' => [
+                    ],
+                    [
+                        'type'     => 'text',
+                        'label'    => $this->trans('Test Secret Key'),
+                        'name'     => 'KLUMP_TEST_SECRET_KEY',
+                        'size'     => 40,
+                        'required' => true,
+                    ],
+                    [
+                        'type'     => 'text',
+                        'label'    => $this->trans('Live Public Key'),
+                        'name'     => 'KLUMP_LIVE_PUBLIC_KEY',
+                        'size'     => 40,
+                        'required' => true,
+                    ],
+                    [
+                        'type'     => 'text',
+                        'label'    => $this->trans('Live Secret Key'),
+                        'name'     => 'KLUMP_LIVE_SECRET_KEY',
+                        'size'     => 40,
+                        'required' => true,
+                    ],
+                    [
+                        'type'     => 'switch',
+                        'label'    => $this->trans('Disable Klump on Cart Page'),
+                        'name'     => 'KLUMP_DISABLE',
+                        'is_bool'  => true,
+                        'required' => true,
+                        'desc'     => 'This will remove Klump Buy Now, Pay Later from your checkout page.',
+                        'values'   => [
                             [
-                                'id' => 'active_on',
+                                'id'    => 'active_on',
                                 'value' => true,
-                                'label' => $this->trans('Disable')
-                            ],[
-                                'id' => 'active_off',
+                                'label' => $this->trans('Disable'),
+                            ], [
+                                'id'    => 'active_off',
                                 'value' => false,
-                                'label' => $this->trans('Enable')
-                            ]
-                        ]
+                                'label' => $this->trans('Enable'),
+                            ],
+                        ],
                     ],
                     [
-                        'type' => 'switch',
-                        'label' => $this->trans('Enable Automatic Product Sync', [], 'Modules.Klump.Admin'),
-                        'name' => 'KLUMP_ENABLE_SYNC', // Name of the configuration key
-                        'is_bool' => true,
+                        'type'     => 'switch',
+                        'label'    => $this->trans('Enable Automatic Product Sync', [], 'Modules.Klump.Admin'),
+                        'name'     => 'KLUMP_ENABLE_SYNC', // Name of the configuration key
+                        'is_bool'  => true,
                         'required' => true,
-                        'desc' => $this->trans(
+                        'desc'     => $this->trans(
                             'Enable this option to automatically sync products with the external API on update or purchase.',
                             [],
                             'Modules.Klump.Admin'
                         ),
-                        'values' => [
+                        'values'   => [
                             [
-                                'id' => 'active_on',
+                                'id'    => 'active_on',
                                 'value' => true,
                                 'label' => $this->trans('Enable'),
                             ],
                             [
-                                'id' => 'active_off',
+                                'id'    => 'active_off',
                                 'value' => false,
                                 'label' => $this->trans('Disable'),
                             ],
                         ],
                     ],
                 ],
-                'submit' => [
+                'submit'      => [
                     'title' => $this->trans('Save'),
-                    'class' => 'btn btn-default pull-right'
-                ]
-            ]
+                    'class' => 'btn btn-default pull-right',
+                ],
+            ],
         ];
 
         $helper = new HelperForm();
 
         // Set form properties
-        $helper->show_toolbar = false;
-        $helper->table = $this->table;
-        $helper->name_controller = $this->name;
-        $helper->module = $this;
-        $helper->default_form_language = (int) Configuration::get('PS_LANG_DEFAULT');
+        $helper->show_toolbar             = false;
+        $helper->table                    = $this->table;
+        $helper->name_controller          = $this->name;
+        $helper->module                   = $this;
+        $helper->default_form_language    = (int)Configuration::get('PS_LANG_DEFAULT');
         $helper->allow_employee_form_lang = Configuration::get('PS_BO_ALLOW_EMPLOYEE_FORM_LANG') ?: 0;
-        $helper->identifier = $this->identifier;
-        $helper->submit_action = 'submitKlumpBNPL';
-        $helper->currentIndex = AdminController::$currentIndex . '&configure=' . $this->name;
-        $helper->token = Tools::getAdminTokenLite('AdminModules');
-        $helper->tpl_vars = array(
+        $helper->identifier               = $this->identifier;
+        $helper->submit_action            = 'submitKlumpBNPL';
+        $helper->currentIndex             = AdminController::$currentIndex . '&configure=' . $this->name;
+        $helper->token                    = Tools::getAdminTokenLite('AdminModules');
+        $helper->tpl_vars                 = [
             'fields_value' => $this->getConfigFieldsValues(),
-            'languages' => $this->context->controller->getLanguages(),
-            'id_language' => $this->context->language->id
-        );
+            'languages'    => $this->context->controller->getLanguages(),
+            'id_language'  => $this->context->language->id,
+        ];
 
         return $helper->generateForm([$fields_form]);
     }
 
     public function getConfigFieldsValues()
     {
-        return array(
+        return [
             'KLUMP_TEST_PUBLIC_KEY' => Tools::getValue('KLUMP_TEST_PUBLIC_KEY', Configuration::get('KLUMP_TEST_PUBLIC_KEY')),
             'KLUMP_TEST_SECRET_KEY' => Tools::getValue('KLUMP_TEST_SECRET_KEY', Configuration::get('KLUMP_TEST_SECRET_KEY')),
             'KLUMP_LIVE_PUBLIC_KEY' => Tools::getValue('KLUMP_LIVE_PUBLIC_KEY', Configuration::get('KLUMP_LIVE_PUBLIC_KEY')),
             'KLUMP_LIVE_SECRET_KEY' => Tools::getValue('KLUMP_LIVE_SECRET_KEY', Configuration::get('KLUMP_LIVE_SECRET_KEY')),
-            'KLUMP_MODE' => Tools::getValue('KLUMP_MODE', Configuration::get('KLUMP_MODE')),
-            'KLUMP_DISABLE' => Tools::getValue('KLUMP_DISABLE', Configuration::get('KLUMP_DISABLE') ? false : true),
-            'KLUMP_ENABLE_SYNC' => Tools::getValue('KLUMP_ENABLE_SYNC', Configuration::get('KLUMP_ENABLE_SYNC')),
-        );
+            'KLUMP_MODE'            => Tools::getValue('KLUMP_MODE', Configuration::get('KLUMP_MODE')),
+            'KLUMP_DISABLE'         => Tools::getValue('KLUMP_DISABLE', Configuration::get('KLUMP_DISABLE') ? false : true),
+            'KLUMP_ENABLE_SYNC'     => Tools::getValue('KLUMP_ENABLE_SYNC', Configuration::get('KLUMP_ENABLE_SYNC')),
+        ];
     }
 
     /**
@@ -557,26 +574,26 @@ class Klump extends PaymentModule
      */
     public function hookModuleRoutes($params)
     {
-        return array(
-            'module-klump-webhook' => array(
+        return [
+            'module-klump-webhook' => [
                 'controller' => 'Klump',
-                'rule' => 'klump/webhook', // Custom URL (e.g., www.yourshop.com/my-custom-url)
-                'keywords' => array(),
-                'params' => array(
-                    'fc' => 'module',
+                'rule'       => 'klump/webhook', // Custom URL (e.g., www.yourshop.com/my-custom-url)
+                'keywords'   => [],
+                'params'     => [
+                    'fc'     => 'module',
                     'module' => $this->name,
-                ),
-            ),
-            'module-klump-status' => array(
+                ],
+            ],
+            'module-klump-status'  => [
                 'controller' => 'klumpstatus',
-                'rule' => 'module/klump/klump-status',
-                'keywords' => array(),
-                'params' => array(
-                    'fc' => 'module',
+                'rule'       => 'module/klump/klump-status',
+                'keywords'   => [],
+                'params'     => [
+                    'fc'     => 'module',
                     'module' => 'klump',
-                )
-            ),
-        );
+                ],
+            ],
+        ];
     }
 
     public function hookActionObjectProductUpdateAfter($params)
@@ -587,7 +604,7 @@ class Klump extends PaymentModule
             return;
         }
 
-        $productId = (int) $params['object']->id;
+        $productId = (int)$params['object']->id;
 
         // Skip if product was already synced during this request
         if (isset($syncTracker[$productId])) {
@@ -608,8 +625,8 @@ class Klump extends PaymentModule
             return;
         }
 
-        $productId = (int) $params['id_product'];
-        $newStock = (int) $params['quantity'];
+        $productId = (int)$params['id_product'];
+        $newStock  = (int)$params['quantity'];
 
         // Check if the stock has already been updated
         if (isset($lastSyncedStock[$productId]) && $lastSyncedStock[$productId] === $newStock) {
@@ -629,62 +646,62 @@ class Klump extends PaymentModule
         $query->from('product');
         $productIds = Db::getInstance()->executeS($query);
 
-        $batchSize = 100; // Process 100 products at a time
+        $batchSize     = 100; // Process 100 products at a time
         $totalProducts = count($productIds);
-        $batches = array_chunk($productIds, $batchSize);
+        $batches       = array_chunk($productIds, $batchSize);
 
         \PrestaShopLogger::addLog('Klump: Starting batch sync for ' . $totalProducts . ' products', 1);
 
         foreach ($batches as $batchIndex => $batch) {
             $allProductData = [];
-            $context = Context::getContext();
+            $context        = Context::getContext();
 
             // Prepare data for current batch
             foreach ($batch as $product) {
                 $productId = (int)$product['id_product'];
-                $product = new Product($productId);
-                $variants = $product->getAttributeCombinations($context->language->id);
+                $product   = new Product($productId);
+                $variants  = $product->getAttributeCombinations($context->language->id);
 
                 // If no variants, add the product itself
                 if (empty($variants)) {
                     $allProductData[] = [
-                        'name' => $product->name[$context->language->id],
-                        'product_id' => $product->id,
-                        'variant_id' => null,
+                        'name'         => $product->name[$context->language->id],
+                        'product_id'   => $product->id,
+                        'variant_id'   => null,
                         'variant_name' => null,
                         'is_published' => (bool)$product->active,
-                        'price' => (float)$product->price,
-                        'old_price' => (float)(isset($product->base_price) ? $product->base_price : $product->price),
-                        'description' => $product->description[$context->language->id],
-                        'sku' => $product->reference,
-                        'image' => $context->link->getImageLink(
+                        'price'        => (float)$product->price,
+                        'old_price'    => (float)(isset($product->base_price) ? $product->base_price : $product->price),
+                        'description'  => $product->description[$context->language->id],
+                        'sku'          => $product->reference,
+                        'image'        => $context->link->getImageLink(
                             $product->link_rewrite[$context->language->id],
                             $product->getCover($product->id)['id_image'],
                             'home_default'
                         ),
-//                        'sub_category' => KlumpProductSync::getCategoryName($productId),
-//                        'category' => KlumpProductSync::getParentCategoryName($productId),
+                        //                        'sub_category' => KlumpProductSync::getCategoryName($productId),
+                        //                        'category' => KlumpProductSync::getParentCategoryName($productId),
                     ];
                 } else {
                     // Add all variants
                     foreach ($variants as $variant) {
                         $allProductData[] = [
-                            'name' => $product->name[$context->language->id],
-                            'product_id' => $product->id,
-                            'variant_id' => $variant['id_product_attribute'],
+                            'name'         => $product->name[$context->language->id],
+                            'product_id'   => $product->id,
+                            'variant_id'   => $variant['id_product_attribute'],
                             'variant_name' => $variant['attribute_name'],
                             'is_published' => (bool)$product->active,
-                            'price' => (float)$variant['price'],
-                            'old_price' => null,
-                            'description' => $product->description[$context->language->id],
-                            'sku' => $variant['reference'] ?: $product->reference,
-                            'image' => $context->link->getImageLink(
+                            'price'        => (float)$variant['price'],
+                            'old_price'    => null,
+                            'description'  => $product->description[$context->language->id],
+                            'sku'          => $variant['reference'] ?: $product->reference,
+                            'image'        => $context->link->getImageLink(
                                 $product->link_rewrite[$context->language->id],
                                 $variant['id_image'] ?? $product->getCover($product->id)['id_image'],
                                 'home_default'
                             ),
-//                            'sub_category' => KlumpProductSync::getCategoryName($productId),
-//                            'category' => KlumpProductSync::getParentCategoryName($productId),
+                            //                            'sub_category' => KlumpProductSync::getCategoryName($productId),
+                            //                            'category' => KlumpProductSync::getParentCategoryName($productId),
                         ];
                     }
                 }
@@ -709,5 +726,49 @@ class Klump extends PaymentModule
         }
 
         \PrestaShopLogger::addLog('Klump: Completed batch sync of all products', 1);
+    }
+
+    public function hookDisplayProductAdditionalInfo($params)
+    {
+        // Check if module is active and currency is supported
+        if (!$this->active || $this->context->currency->iso_code !== 'NGN') {
+            return;
+        }
+
+        $product = $params['product'];
+        if (!$product) {
+            return;
+        }
+
+        // Get the merchant public key based on mode
+        $config            = $this->getConfigFieldsValues();
+        $merchantPublickey = $config['KLUMP_MODE'] ? $config['KLUMP_TEST_PUBLIC_KEY'] : $config['KLUMP_LIVE_PUBLIC_KEY'];
+
+        if (empty($merchantPublickey)) {
+            return;
+        }
+
+        $price = $product['price'];
+
+        $price = $product['price']; // Example: '₦141,750.00'
+
+        // 1. Remove non-numeric characters except dots and commas
+        $cleanPrice = preg_replace('/[^0-9.,]/', '', $price); // Output: '141,750.00'
+
+        // 2. Remove thousands separator (commas)
+        $numericPrice = (float)str_replace(',', '', $cleanPrice); // Output: 141750.00
+
+        // Only show button if price is above 10,000 NGN
+        if ($numericPrice < 10000) {
+            return;
+        }
+
+        $this->context->smarty->assign([
+            'price'               => $numericPrice,
+            'merchant_public_key' => $merchantPublickey,
+            'currency'            => $this->context->currency->iso_code,
+        ]);
+
+        return $this->display(__FILE__, 'views/templates/hook/product-button.tpl');
     }
 }

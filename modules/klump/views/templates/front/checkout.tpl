@@ -28,7 +28,7 @@
             customer: '{$customer}',
             email: '{$customer_email}',
             klump_plugin_source: 'prestashop',
-            klump_plugin_version: '0.1.0',
+            klump_plugin_version: '0.1.1',
             customer_address: '{$customer_address}'
         },
         items: cartItems
