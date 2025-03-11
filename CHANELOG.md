@@ -20,5 +20,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Add Klump button on PDP with payment details
+- Add Klump button on product details page with payment details
 - Bug fixes and improvements

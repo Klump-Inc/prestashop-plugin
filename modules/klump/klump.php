@@ -748,8 +748,6 @@ class Klump extends PaymentModule
             return;
         }
 
-        $price = $product['price'];
-
         $price = $product['price']; // Example: '₦141,750.00'
 
         // 1. Remove non-numeric characters except dots and commas
