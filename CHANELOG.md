@@ -11,6 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Ability to install and configure software projec and set up basic configuration information.
-- Ability to turn on and off Klump's BNPL on Prestashop store front
-- Ability to turn on live or test mode for Prestashop store front
+- Install and configure payment gateway
+- Enable BNPL gateway for checkout
+- Order update on successful payment
+- Sync products with Klump Commerce
+
+## [0.1.1] - 2025-03-11
+
+### Changed
+
+- Add Klump button on product details page with payment details
+- Bug fixes and improvements
